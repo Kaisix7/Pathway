@@ -2,6 +2,26 @@
 
 A new Flutter project.
 
+## Docker backend
+
+Start the Django API from the project root:
+
+```powershell
+docker compose up --build
+```
+
+The backend will be available at:
+
+```text
+http://localhost:8000
+```
+
+API routes start with:
+
+```text
+http://localhost:8000/api/
+```
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
