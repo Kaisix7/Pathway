@@ -48,8 +48,9 @@ class ApiService {
     }
   }
 
-  static Future<bool> createAirportOrder({
+  static Future<AppOrder?> createAirportOrder({
     required String name,
+    required String userEmail,
     required String tariff,
     required int price,
     required String pickupLocation,
@@ -65,6 +66,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'name': name,
+          'user_email': userEmail,
           'tariff': tariff,
           'price': price,
           'service_type': 'airport',
@@ -81,10 +83,11 @@ class ApiService {
 
       if (response.statusCode != 200) {
         print(response.body);
-        return false;
+        return null;
       }
 
-      return true;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return _mapOrder(data['order'] as Map<String, dynamic>);
     } catch (e, stackTrace) {
       print('createAirportOrder error: $e');
       print(stackTrace);
@@ -97,9 +100,10 @@ class ApiService {
     required String serviceType,
     required String title,
     required String details,
+    String userEmail = '',
     String tariff = '',
     int price = 0,
-    String status = 'Confirmed',
+    String status = 'pending',
   }) async {
     try {
       final response = await http.post(
@@ -107,6 +111,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'name': name,
+          'user_email': userEmail,
           'tariff': tariff,
           'price': price,
           'service_type': serviceType,
@@ -131,9 +136,12 @@ class ApiService {
     }
   }
 
-  static Future<List<AppOrder>> fetchOrders() async {
+  static Future<List<AppOrder>> fetchOrders({String userEmail = ''}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/orders/'));
+      final uri = Uri.parse('$baseUrl/orders/').replace(
+        queryParameters: userEmail.isEmpty ? null : {'user_email': userEmail},
+      );
+      final response = await http.get(uri);
 
       print(response.statusCode);
 
@@ -146,6 +154,31 @@ class ApiService {
       return data.map((item) => _mapOrder(item as Map<String, dynamic>)).toList();
     } catch (e, stackTrace) {
       print('fetchOrders error: $e');
+      print(stackTrace);
+      rethrow;
+    }
+  }
+
+  static Future<AppOrder?> payOrder(String orderId) async {
+    final numericId = orderId.replaceFirst('api_', '');
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/orders/$numericId/pay/'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print(response.statusCode);
+
+      if (response.statusCode != 200) {
+        print(response.body);
+        return null;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return _mapOrder(data['order'] as Map<String, dynamic>);
+    } catch (e, stackTrace) {
+      print('payOrder error: $e');
       print(stackTrace);
       rethrow;
     }

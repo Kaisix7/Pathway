@@ -22,11 +22,22 @@ class ApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(AppUser.objects.count(), 1)
 
+        login_response = self.client.post(
+            '/api/login/',
+            data=json.dumps({'email': 'aida@example.com'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(login_response.status_code, 200)
+        self.assertEqual(login_response.json()['user']['email'], 'aida@example.com')
+
     def test_orders_post_and_get(self):
+        AppUser.objects.create(name='Aida', email='aida@example.com')
         post_response = self.client.post(
             '/api/orders/',
             data=json.dumps({
                 'name': 'Aida',
+                'user_email': 'aida@example.com',
                 'tariff': 'Comfort',
                 'price': 18000,
                 'pickup_location': 'Almaty Airport - Terminal 2',
@@ -41,14 +52,23 @@ class ApiTests(TestCase):
 
         self.assertEqual(post_response.status_code, 200)
         self.assertEqual(AirportOrder.objects.count(), 1)
+        order = AirportOrder.objects.latest('id')
+        self.assertEqual(order.user_email, 'aida@example.com')
+        self.assertEqual(order.user.email, 'aida@example.com')
+        self.assertEqual(order.order_status, 'pending')
 
-        get_response = self.client.get('/api/orders/')
+        get_response = self.client.get('/api/orders/?user_email=aida@example.com')
 
         self.assertEqual(get_response.status_code, 200)
         data = get_response.json()
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]['flight_number'], 'KC 123')
         self.assertEqual(data[0]['pickup_location'], 'Almaty Airport - Terminal 2')
+
+        pay_response = self.client.post(f'/api/orders/{order.id}/pay/')
+        self.assertEqual(pay_response.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.order_status, 'done')
 
     def test_generic_iin_order_post(self):
         post_response = self.client.post(
@@ -60,7 +80,7 @@ class ApiTests(TestCase):
                 'service_type': 'iin',
                 'order_title': 'IIN appointment: Medeu',
                 'details': 'PSC Almaty\n2026-04-22 at 10:00',
-                'order_status': 'Confirmed',
+                'order_status': 'pending',
             }),
             content_type='application/json',
         )

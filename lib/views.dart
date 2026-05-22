@@ -1373,6 +1373,30 @@ class AccountView extends StatelessWidget {
             title: 'Subscription',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionView(app: app))),
           ),
+          const SizedBox(height: 12),
+          _nav(
+            icon: Icons.info_outline,
+            title: 'About',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoPage(title: 'About', body: _aboutText))),
+          ),
+          const SizedBox(height: 12),
+          _nav(
+            icon: Icons.help_outline,
+            title: 'Help',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoPage(title: 'Help', body: _helpText))),
+          ),
+          const SizedBox(height: 12),
+          _nav(
+            icon: Icons.article_outlined,
+            title: 'Terms of Service',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoPage(title: 'Terms of Service', body: _termsText))),
+          ),
+          const SizedBox(height: 12),
+          _nav(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy Policy',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoPage(title: 'Privacy Policy', body: _privacyText))),
+          ),
           const SizedBox(height: 18),
           SizedBox(
             height: 54,
@@ -1425,6 +1449,63 @@ class AccountView extends StatelessWidget {
             TextSpan(text: '${value ?? '-'}'),
           ],
         ),
+      ),
+    );
+  }
+}
+
+const String _aboutText =
+    'PATHWAY helps foreigners in Kazakhstan manage onboarding tasks: IIN, migration address, housing, airport pickup, visa reminders, maps and assistant guidance.';
+
+const String _helpText =
+    'For support, check Services for the needed flow, open Orders to track requests, and use Assistant for common questions about IIN, visa, housing and airport pickup.';
+
+const String _termsText =
+    'By using PATHWAY, users agree to provide accurate information, use the service legally, and understand that this MVP provides guidance and order management rather than official government services.';
+
+const String _privacyText =
+    'PATHWAY stores profile, order and analytics data needed to provide the service. Sensitive data should be kept minimal. Data is used for support, order tracking and product analytics.';
+
+class InfoPage extends StatelessWidget {
+  final String title;
+  final String body;
+
+  const InfoPage({
+    super.key,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Text(
+              body,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF3C4457),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1587,11 +1668,12 @@ class _IinQueueViewState extends State<IinQueueView> {
                           '${docUpload ? '\nDocs: checklist ready' : ''}';
                       final saved = await ApiService.createServiceOrder(
                         name: widget.app.firstName.isNotEmpty ? widget.app.firstName : 'Guest',
+                        userEmail: widget.app.contact,
                         serviceType: 'iin',
                         title: 'IIN appointment: ${center.district}',
                         details: details,
                         tariff: 'IIN Booking',
-                        status: 'Confirmed',
+                        status: 'pending',
                       );
                       if (!saved) {
                         _snack('IIN booking was not saved to Django');
@@ -1602,7 +1684,7 @@ class _IinQueueViewState extends State<IinQueueView> {
                         title: 'IIN appointment: ${center.district}',
                         details: details,
                         createdAt: DateTime.now(),
-                        status: 'Confirmed',
+                        status: 'pending',
                       );
                       widget.app.addOrder(o);
                       _snack('IIN appointment saved');
@@ -1952,6 +2034,7 @@ class _AirportViewState extends State<AirportView> {
 
     final saved = await ApiService.createAirportOrder(
       name: widget.app.firstName.isNotEmpty ? widget.app.firstName : 'Guest',
+      userEmail: widget.app.contact,
       tariff: car,
       price: price,
       pickupLocation: pickupLocation,
@@ -1962,29 +2045,16 @@ class _AirportViewState extends State<AirportView> {
       destination: destination.trim(),
     );
 
-    if (!saved) {
+    if (saved == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order was not saved to Django')));
       return;
     }
 
-    final o = AppOrder(
-      id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Airport pickup ($car)',
-      details: 'Pickup: $pickupLocation\nFlight: $flight\n${date!.toLocal().toString().split(' ').first} at $time\nPax: $pax\nTo: $destination',
-      createdAt: DateTime.now(),
-      status: 'Confirmed',
-    );
-    widget.app.addOrder(o);
-    widget.app.addPayment(PaymentRecord(
-      id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Airport pickup ($car)',
-      amount: price.toDouble(),
-      date: DateTime.now(),
-    ));
+    widget.app.addOrder(saved);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order sent to Django and saved')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order created. Open Payments to complete it.')));
     Navigator.pop(context);
   }
 
@@ -2205,11 +2275,12 @@ class _VisaDocsViewState extends State<VisaDocsView> {
                       'Visa expiry updated to ${picked.toLocal().toString().split(' ').first}\nCountry: ${widget.app.nationality}';
                   final saved = await ApiService.createServiceOrder(
                     name: widget.app.firstName.isNotEmpty ? widget.app.firstName : 'Guest',
+                    userEmail: widget.app.contact,
                     serviceType: 'visa',
                     title: 'Visa update',
                     details: details,
                     tariff: 'Visa Tracker',
-                    status: 'Updated',
+                    status: 'done',
                   );
                   if (saved) {
                     widget.app.addOrder(
@@ -2217,7 +2288,7 @@ class _VisaDocsViewState extends State<VisaDocsView> {
                         id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
                         title: 'Visa update',
                         details: details,
-                        status: 'Updated',
+                        status: 'done',
                         createdAt: DateTime.now(),
                       ),
                     );
@@ -2384,7 +2455,8 @@ class _OrdersViewState extends State<OrdersView> {
 
   Future<void> _loadOrders() async {
     try {
-      final orders = await ApiService.fetchOrders();
+      final userEmail = widget.app.contact.isNotEmpty ? widget.app.contact : widget.app.workerContact;
+      final orders = await ApiService.fetchOrders(userEmail: userEmail);
       widget.app.setOrders(orders);
       if (!mounted) return;
       setState(() {
@@ -2441,32 +2513,120 @@ class _OrdersViewState extends State<OrdersView> {
   }
 }
 
-class PaymentsView extends StatelessWidget {
+class PaymentsView extends StatefulWidget {
   final AppState app;
   const PaymentsView({super.key, required this.app});
 
   @override
+  State<PaymentsView> createState() => _PaymentsViewState();
+}
+
+class _PaymentsViewState extends State<PaymentsView> {
+  bool isPaying = false;
+
+  int _amountFromDetails(AppOrder order) {
+    final match = RegExp(r'Price: (\d+) KZT').firstMatch(order.details);
+    if (match == null) return 0;
+    return int.tryParse(match.group(1) ?? '0') ?? 0;
+  }
+
+  Future<void> _pay(AppOrder order) async {
+    setState(() => isPaying = true);
+    try {
+      if (!order.id.startsWith('api_')) {
+        final paidOrder = AppOrder(
+          id: order.id,
+          title: order.title,
+          details: order.details,
+          status: 'done',
+          createdAt: order.createdAt,
+        );
+        widget.app.updateOrder(paidOrder);
+        widget.app.addPayment(
+          PaymentRecord(
+            id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
+            title: paidOrder.title,
+            amount: _amountFromDetails(paidOrder).toDouble(),
+            date: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment completed')));
+        return;
+      }
+
+      final paidOrder = await ApiService.payOrder(order.id);
+      if (paidOrder == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment failed')));
+        return;
+      }
+
+      widget.app.updateOrder(paidOrder);
+      widget.app.addPayment(
+        PaymentRecord(
+          id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
+          title: paidOrder.title,
+          amount: _amountFromDetails(paidOrder).toDouble(),
+          date: DateTime.now(),
+        ),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment completed')));
+    } finally {
+      if (mounted) setState(() => isPaying = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final pendingOrders = widget.app.orders.where((order) => order.status == 'pending').toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Payments')),
-      body: app.payments.isEmpty
-          ? const Center(child: Text('No payments yet', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF7E8AA5))))
-          : ListView.builder(
-              padding: const EdgeInsets.all(18),
-              itemCount: app.payments.length,
-              itemBuilder: (_, i) {
-                final p = app.payments[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    tileColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                    subtitle: Text('Amount: ${p.amount.toStringAsFixed(2)}\nDate: ${p.date.toLocal()}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          if (pendingOrders.isNotEmpty) ...[
+            const Text('Pending payments', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            const SizedBox(height: 12),
+            for (final order in pendingOrders)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  tileColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  title: Text(order.title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: Text(order.details, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                  trailing: FilledButton(
+                    onPressed: isPaying ? null : () => _pay(order),
+                    child: const Text('Pay'),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+            const SizedBox(height: 10),
+          ],
+          const Text('Payment history', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          const SizedBox(height: 12),
+          if (widget.app.payments.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 30),
+              child: Center(child: Text('No payments yet', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF7E8AA5)))),
+            )
+          else
+            for (final p in widget.app.payments)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  tileColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: Text('Amount: ${p.amount.toStringAsFixed(2)}\nDate: ${p.date.toLocal()}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                ),
+              ),
+        ],
+      ),
     );
   }
 }

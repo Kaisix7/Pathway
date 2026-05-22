@@ -4,7 +4,7 @@ A new Flutter project.
 
 ## Docker backend
 
-Start the Django API from the project root:
+Start Django + PostgreSQL from the project root:
 
 ```powershell
 docker compose up --build
@@ -21,6 +21,13 @@ API routes start with:
 ```text
 http://localhost:8000/api/
 ```
+
+## System docs
+
+- `docs/ARCHITECTURE.md`
+- `docs/DEPLOYMENT.md`
+- `docs/GIT_WORKFLOW.md`
+- `docs/BACKUPS.md`
 
 ## Getting Started
 

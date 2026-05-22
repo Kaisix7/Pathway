@@ -38,9 +38,15 @@ def _openapi_spec():
                     },
                 },
             },
+            '/api/login/': {
+                'post': {'summary': 'Passwordless login by email'},
+            },
             '/api/orders/': {
                 'get': {'summary': 'Get orders'},
                 'post': {'summary': 'Create order/service order'},
+            },
+            '/api/orders/{id}/pay/': {
+                'post': {'summary': 'Mark order as paid/done'},
             },
             '/api/events/': {
                 'post': {'summary': 'Track analytics event'},
@@ -90,7 +96,9 @@ def redoc_ui(request):
     <p>ReDoc-like lightweight docs endpoint.</p>
     <ul>
       <li>POST /api/register/</li>
+      <li>POST /api/login/</li>
       <li>GET/POST /api/orders/</li>
+      <li>POST /api/orders/&lt;id&gt;/pay/</li>
       <li>POST /api/events/</li>
       <li>GET /api/analytics/retention/</li>
       <li>GET /api/metrics/</li>
@@ -108,6 +116,7 @@ def metrics(request):
     orders = AirportOrder.objects.count()
     events = AppEvent.objects.count()
     activations = AppEvent.objects.filter(event_name='activation').count()
+    paid_orders = AirportOrder.objects.filter(order_status=AirportOrder.STATUS_DONE).count()
     lines = [
         '# HELP pathway_users_total Total registered users',
         '# TYPE pathway_users_total gauge',
@@ -121,8 +130,33 @@ def metrics(request):
         '# HELP pathway_activation_total Total activation events',
         '# TYPE pathway_activation_total gauge',
         f'pathway_activation_total {activations}',
+        '# HELP pathway_paid_orders_total Total paid/done orders',
+        '# TYPE pathway_paid_orders_total gauge',
+        f'pathway_paid_orders_total {paid_orders}',
     ]
     return HttpResponse('\n'.join(lines), content_type='text/plain; version=0.0.4')
+
+
+def _order_payload(order):
+    return {
+        'id': order.id,
+        'user_id': order.user_id,
+        'user_email': order.user_email,
+        'name': order.name,
+        'tariff': order.tariff,
+        'price': order.price,
+        'service_type': order.service_type,
+        'order_title': order.order_title,
+        'details': order.details,
+        'order_status': order.order_status,
+        'pickup_location': order.pickup_location,
+        'flight_number': order.flight_number,
+        'arrival_date': order.arrival_date,
+        'arrival_time': order.arrival_time,
+        'passengers': order.passengers,
+        'destination': order.destination,
+        'created_at': order.created_at.isoformat(),
+    }
 
 
 def retention_summary(request):
@@ -237,7 +271,11 @@ def orders(request):
         return JsonResponse({'status': 'ok'})
 
     if request.method == 'GET':
-        data = list(AirportOrder.objects.values())
+        user_email = request.GET.get('user_email', '').strip()
+        queryset = AirportOrder.objects.select_related('user').order_by('-created_at')
+        if user_email:
+            queryset = queryset.filter(user_email=user_email)
+        data = [_order_payload(order) for order in queryset]
         return JsonResponse(data, safe=False)
 
     elif request.method == 'POST':
@@ -250,14 +288,19 @@ def orders(request):
         if service_type == 'airport' and (not body.get('tariff') or body.get('price') is None):
             return JsonResponse({'error': 'name, tariff and price are required'}, status=400)
 
+        user_email = body.get('user_email', '').strip()
+        user = AppUser.objects.filter(email=user_email).first() if user_email else None
+
         order = AirportOrder.objects.create(
+            user=user,
+            user_email=user_email,
             name=body.get('name'),
             tariff=body.get('tariff', ''),
             price=body.get('price', 0),
             service_type=service_type,
             order_title=body.get('order_title', ''),
             details=body.get('details', ''),
-            order_status=body.get('order_status', 'Confirmed'),
+            order_status=body.get('order_status', AirportOrder.STATUS_PENDING),
             pickup_location=body.get('pickup_location', ''),
             flight_number=body.get('flight_number', ''),
             arrival_date=body.get('arrival_date', ''),
@@ -266,9 +309,73 @@ def orders(request):
             destination=body.get('destination', ''),
         )
 
-        return JsonResponse({'status': 'created', 'id': order.id})
+        AppEvent.objects.create(
+            event_name='order_created',
+            user_email=order.user_email,
+            properties=mask_payload({'order_id': order.id, 'service_type': order.service_type}),
+        )
+
+        return JsonResponse({'status': 'created', 'id': order.id, 'order': _order_payload(order)})
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+def pay_order(request, order_id):
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    order = AirportOrder.objects.filter(id=order_id).first()
+    if not order:
+        return JsonResponse({'error': 'order not found'}, status=404)
+
+    order.order_status = AirportOrder.STATUS_DONE
+    order.save(update_fields=['order_status'])
+
+    AppEvent.objects.create(
+        event_name='order_paid',
+        user_email=order.user_email,
+        properties=mask_payload({'order_id': order.id, 'amount': order.price}),
+    )
+
+    return JsonResponse({'status': 'done', 'order': _order_payload(order)})
+
+
+@csrf_exempt
+def login(request):
+    if request.method == "OPTIONS":
+        return JsonResponse({"status": "ok"})
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    data = json.loads(request.body or '{}')
+    email = data.get('email', '').strip()
+    if not email:
+        return JsonResponse({'error': 'email is required'}, status=400)
+
+    user = AppUser.objects.filter(email=email).first()
+    if not user:
+        return JsonResponse({'error': 'user not found'}, status=404)
+
+    AppEvent.objects.create(
+        event_name='login',
+        user_email=user.email,
+        properties={},
+    )
+
+    return JsonResponse({
+        'status': 'ok',
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'plan': user.plan,
+        },
+    })
 
 
 @csrf_exempt
@@ -284,12 +391,13 @@ def register(request):
 
         user, created = AppUser.objects.get_or_create(
             email=data.get("email"),
-            defaults={"name": data.get("name")},
+            defaults={"name": data.get("name"), "plan": data.get("plan", "free")},
         )
 
-        if not created and user.name != data.get("name"):
+        if not created and (user.name != data.get("name") or user.plan != data.get("plan", user.plan)):
             user.name = data.get("name")
-            user.save(update_fields=["name"])
+            user.plan = data.get("plan", user.plan)
+            user.save(update_fields=["name", "plan"])
 
         AppEvent.objects.create(
             event_name='registration',
@@ -302,6 +410,15 @@ def register(request):
             properties=mask_payload({'name': data.get('name'), 'email': data.get('email')}),
         )
 
-        return JsonResponse({"status": "ok", "id": user.id})
+        return JsonResponse({
+            "status": "ok",
+            "id": user.id,
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "plan": user.plan,
+            },
+        })
 
     return JsonResponse({"error": "Method not allowed"}, status=405)

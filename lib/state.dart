@@ -236,6 +236,16 @@ double get progress =>
     notifyListeners();
   }
 
+  void updateOrder(AppOrder updatedOrder) {
+    final index = orders.indexWhere((order) => order.id == updatedOrder.id);
+    if (index == -1) {
+      orders.insert(0, updatedOrder);
+    } else {
+      orders[index] = updatedOrder;
+    }
+    notifyListeners();
+  }
+
   void setOrders(List<AppOrder> newOrders) {
     orders
       ..clear()
