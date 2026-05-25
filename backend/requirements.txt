@@ -1,7 +1,5 @@
 django==6.0.3
 django-cors-headers==4.7.0
 coverage==7.10.7
-<<<<<<< HEAD
-=======
 psycopg[binary]==3.2.10
->>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
+gunicorn
