@@ -13,12 +13,20 @@ SECRET_KEY = 'django-insecure-&n(^5u8idm^ebf)sria-^%kt-zgozy$3*-q2l!z=i5qu0r-sj5
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+<<<<<<< HEAD
 ALLOWED_HOSTS = [
     'pathway-1-wwbc.onrender.com',
     '127.0.0.1',
     'localhost',
     '*'
 ]
+=======
+
+ALLOWED_HOSTS = os.getenv(
+    'DJANGO_ALLOWED_HOSTS',
+    '127.0.0.1,localhost',
+).split(',')
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
 
 
 # Application definition
@@ -69,12 +77,33 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+<<<<<<< HEAD
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+=======
+if os.getenv('POSTGRES_DB'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'pathway'),
+            'USER': os.getenv('POSTGRES_USER', 'pathway'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'pathway'),
+            'HOST': os.getenv('POSTGRES_HOST', 'db'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
 
 
 # Password validation

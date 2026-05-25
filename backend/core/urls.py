@@ -1,8 +1,15 @@
 from django.urls import path
 from .views import (
     metrics,
+<<<<<<< HEAD
     openapi_json,
     orders,
+=======
+    login,
+    openapi_json,
+    orders,
+    pay_order,
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
     redoc_ui,
     register,
     request_2fa,
@@ -14,7 +21,13 @@ from .views import (
 
 urlpatterns = [
     path('orders/', orders),
+<<<<<<< HEAD
     path('register/', register),
+=======
+    path('orders/<int:order_id>/pay/', pay_order),
+    path('register/', register),
+    path('login/', login),
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
     path('events/', track_event),
     path('analytics/retention/', retention_summary),
     path('metrics/', metrics),

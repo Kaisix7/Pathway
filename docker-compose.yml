@@ -1,12 +1,44 @@
 services:
+<<<<<<< HEAD
+=======
+  db:
+    image: postgres:16-alpine
+    container_name: pathway_db
+    environment:
+      POSTGRES_DB: pathway
+      POSTGRES_USER: pathway
+      POSTGRES_PASSWORD: pathway
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
   backend:
     build:
       context: ./backend
     container_name: pathway_backend
+<<<<<<< HEAD
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+=======
+    command: sh -c "until pg_isready -h db -U pathway; do sleep 1; done && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      - db
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
     environment:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0,10.0.2.2
+<<<<<<< HEAD
+=======
+      POSTGRES_DB: pathway
+      POSTGRES_USER: pathway
+      POSTGRES_PASSWORD: pathway
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+
+volumes:
+  postgres_data:
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
