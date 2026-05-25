@@ -5,13 +5,10 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-<<<<<<< HEAD
-=======
 RUN apt-get update \
     && apt-get install -y --no-install-recommends postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
->>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
