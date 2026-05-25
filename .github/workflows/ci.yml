@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend deps
+        run: pip install -r backend/requirements.txt
+      - name: Run Django tests with coverage
+        run: coverage run --rcfile ../.coveragerc manage.py test core
+        working-directory: backend
+      - name: Coverage report
+        run: coverage report --rcfile .coveragerc
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.0'
+      - name: Flutter pub get
+        run: flutter pub get
+      - name: Flutter test
+        run: flutter test
