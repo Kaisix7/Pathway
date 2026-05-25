@@ -2,9 +2,16 @@
 
 ## Ветки
 
-Для каждой новой функции лучше создавать отдельную ветку:
+В проекте используется разделение веток:
+
+- `main` - стабильная основная ветка.
+- `feature/*` - ветки для новых функций и изменений.
+
+Для каждой новой задачи создается отдельная feature-ветка:
 
 ```bash
+git checkout main
+git pull origin main
 git checkout -b feature/map-search
 ```
 
@@ -13,7 +20,7 @@ git checkout -b feature/map-search
 - `feature/docker-backend`
 - `feature/order-payment-flow`
 - `feature/map-search`
-- `fix/api-errors`
+- `feature/test-change`
 
 ## Commit
 
@@ -21,7 +28,7 @@ git checkout -b feature/map-search
 
 ```bash
 git add .
-git commit -m "Add Docker backend setup"
+git commit -m "Add branch protection documentation"
 ```
 
 Хорошие commit messages:
@@ -33,13 +40,34 @@ git commit -m "Add Docker backend setup"
 
 ## Push
 
-Отправить ветку на GitHub:
+Отправить feature-ветку на GitHub:
 
 ```bash
 git push origin feature/map-search
 ```
 
-Потом открыть Pull Request в `main`.
+После push на GitHub открывается Pull Request из `feature/*` в `main`.
+
+## Branch protection
+
+Ветка `main` защищена.
+
+Правила:
+
+- нельзя пушить напрямую в `main`
+- новые изменения делаются в ветках `feature/*`
+- merge в `main` выполняется через Pull Request
+- перед merge должен пройти CI
+- review-комментарии видны во вкладке Pull Request на GitHub
+
+## Code review
+
+Минимальный процесс code review:
+
+1. Разработчик создает ветку `feature/*`.
+2. Разработчик открывает Pull Request в `main`.
+3. Reviewer оставляет комментарий во вкладке `Files changed`.
+4. После успешного CI и review Pull Request можно слить в `main`.
 
 ## Проверка перед push
 
