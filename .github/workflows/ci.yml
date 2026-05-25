@@ -15,7 +15,12 @@ jobs:
       - name: Install backend deps
         run: pip install -r backend/requirements.txt
       - name: Run Django tests with coverage
+<<<<<<< HEAD
+        run: coverage run --rcfile ../.coveragerc manage.py test core
+        working-directory: backend
+=======
         run: coverage run --rcfile .coveragerc backend/manage.py test core
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
       - name: Coverage report
         run: coverage report --rcfile .coveragerc
 
@@ -25,13 +30,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+<<<<<<< HEAD
+          flutter-version: '3.27.0'
+=======
           flutter-version: '3.38.10'
           channel: 'stable'
           cache: true
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
       - name: Flutter pub get
         run: flutter pub get
       - name: Flutter test
         run: flutter test
+<<<<<<< HEAD
+=======
 
   docker:
     runs-on: ubuntu-latest
@@ -39,3 +50,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build backend Docker image
         run: docker build backend
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950

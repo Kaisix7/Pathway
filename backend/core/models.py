@@ -1,6 +1,5 @@
 from django.db import models
 
-
 class AppUser(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
@@ -13,7 +12,6 @@ class AppUser(models.Model):
     def __str__(self):
         return f"{self.name} <{self.email}>"
 
-
 class AppEvent(models.Model):
     event_name = models.CharField(max_length=100)
     user_email = models.EmailField(blank=True)
@@ -22,7 +20,6 @@ class AppEvent(models.Model):
 
     def __str__(self):
         return f"{self.event_name} - {self.user_email or 'anonymous'}"
-
 
 class AirportOrder(models.Model):
     STATUS_PENDING = 'pending'

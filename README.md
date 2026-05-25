@@ -4,7 +4,11 @@ A new Flutter project.
 
 ## Docker backend
 
+<<<<<<< HEAD
+Start the Django API from the project root:
+=======
 Start Django + PostgreSQL from the project root:
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
 
 ```powershell
 docker compose up --build
@@ -22,6 +26,8 @@ API routes start with:
 http://localhost:8000/api/
 ```
 
+<<<<<<< HEAD
+=======
 ## System docs
 
 - `docs/ARCHITECTURE.md`
@@ -29,6 +35,7 @@ http://localhost:8000/api/
 - `docs/GIT_WORKFLOW.md`
 - `docs/BACKUPS.md`
 
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
 ## Getting Started
 
 This project is a starting point for a Flutter application.

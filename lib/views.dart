@@ -1373,6 +1373,8 @@ class AccountView extends StatelessWidget {
             title: 'Subscription',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionView(app: app))),
           ),
+<<<<<<< HEAD
+=======
           const SizedBox(height: 12),
           _nav(
             icon: Icons.info_outline,
@@ -1397,6 +1399,7 @@ class AccountView extends StatelessWidget {
             title: 'Privacy Policy',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoPage(title: 'Privacy Policy', body: _privacyText))),
           ),
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
           const SizedBox(height: 18),
           SizedBox(
             height: 54,
@@ -1454,6 +1457,8 @@ class AccountView extends StatelessWidget {
   }
 }
 
+<<<<<<< HEAD
+=======
 const String _aboutText =
     'PATHWAY helps foreigners in Kazakhstan manage onboarding tasks: IIN, migration address, housing, airport pickup, visa reminders, maps and assistant guidance.';
 
@@ -1511,6 +1516,7 @@ class InfoPage extends StatelessWidget {
   }
 }
 
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
 class IinQueueView extends StatefulWidget {
   final AppState app;
   const IinQueueView({super.key, required this.app});
@@ -1668,12 +1674,19 @@ class _IinQueueViewState extends State<IinQueueView> {
                           '${docUpload ? '\nDocs: checklist ready' : ''}';
                       final saved = await ApiService.createServiceOrder(
                         name: widget.app.firstName.isNotEmpty ? widget.app.firstName : 'Guest',
+<<<<<<< HEAD
+=======
                         userEmail: widget.app.contact,
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
                         serviceType: 'iin',
                         title: 'IIN appointment: ${center.district}',
                         details: details,
                         tariff: 'IIN Booking',
+<<<<<<< HEAD
+                        status: 'Confirmed',
+=======
                         status: 'pending',
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
                       );
                       if (!saved) {
                         _snack('IIN booking was not saved to Django');
@@ -1684,7 +1697,11 @@ class _IinQueueViewState extends State<IinQueueView> {
                         title: 'IIN appointment: ${center.district}',
                         details: details,
                         createdAt: DateTime.now(),
+<<<<<<< HEAD
+                        status: 'Confirmed',
+=======
                         status: 'pending',
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
                       );
                       widget.app.addOrder(o);
                       _snack('IIN appointment saved');
@@ -2034,7 +2051,10 @@ class _AirportViewState extends State<AirportView> {
 
     final saved = await ApiService.createAirportOrder(
       name: widget.app.firstName.isNotEmpty ? widget.app.firstName : 'Guest',
+<<<<<<< HEAD
+=======
       userEmail: widget.app.contact,
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
       tariff: car,
       price: price,
       pickupLocation: pickupLocation,
@@ -2045,16 +2065,40 @@ class _AirportViewState extends State<AirportView> {
       destination: destination.trim(),
     );
 
+<<<<<<< HEAD
+    if (!saved) {
+=======
     if (saved == null) {
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order was not saved to Django')));
       return;
     }
 
+<<<<<<< HEAD
+    final o = AppOrder(
+      id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Airport pickup ($car)',
+      details: 'Pickup: $pickupLocation\nFlight: $flight\n${date!.toLocal().toString().split(' ').first} at $time\nPax: $pax\nTo: $destination',
+      createdAt: DateTime.now(),
+      status: 'Confirmed',
+    );
+    widget.app.addOrder(o);
+    widget.app.addPayment(PaymentRecord(
+      id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Airport pickup ($car)',
+      amount: price.toDouble(),
+      date: DateTime.now(),
+    ));
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order sent to Django and saved')));
+=======
     widget.app.addOrder(saved);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order created. Open Payments to complete it.')));
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
     Navigator.pop(context);
   }
 
@@ -2275,12 +2319,19 @@ class _VisaDocsViewState extends State<VisaDocsView> {
                       'Visa expiry updated to ${picked.toLocal().toString().split(' ').first}\nCountry: ${widget.app.nationality}';
                   final saved = await ApiService.createServiceOrder(
                     name: widget.app.firstName.isNotEmpty ? widget.app.firstName : 'Guest',
+<<<<<<< HEAD
+=======
                     userEmail: widget.app.contact,
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
                     serviceType: 'visa',
                     title: 'Visa update',
                     details: details,
                     tariff: 'Visa Tracker',
+<<<<<<< HEAD
+                    status: 'Updated',
+=======
                     status: 'done',
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
                   );
                   if (saved) {
                     widget.app.addOrder(
@@ -2288,7 +2339,11 @@ class _VisaDocsViewState extends State<VisaDocsView> {
                         id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
                         title: 'Visa update',
                         details: details,
+<<<<<<< HEAD
+                        status: 'Updated',
+=======
                         status: 'done',
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
                         createdAt: DateTime.now(),
                       ),
                     );
@@ -2455,8 +2510,12 @@ class _OrdersViewState extends State<OrdersView> {
 
   Future<void> _loadOrders() async {
     try {
+<<<<<<< HEAD
+      final orders = await ApiService.fetchOrders();
+=======
       final userEmail = widget.app.contact.isNotEmpty ? widget.app.contact : widget.app.workerContact;
       final orders = await ApiService.fetchOrders(userEmail: userEmail);
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
       widget.app.setOrders(orders);
       if (!mounted) return;
       setState(() {
@@ -2513,11 +2572,38 @@ class _OrdersViewState extends State<OrdersView> {
   }
 }
 
+<<<<<<< HEAD
+class PaymentsView extends StatelessWidget {
+=======
 class PaymentsView extends StatefulWidget {
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
   final AppState app;
   const PaymentsView({super.key, required this.app});
 
   @override
+<<<<<<< HEAD
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Payments')),
+      body: app.payments.isEmpty
+          ? const Center(child: Text('No payments yet', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF7E8AA5))))
+          : ListView.builder(
+              padding: const EdgeInsets.all(18),
+              itemCount: app.payments.length,
+              itemBuilder: (_, i) {
+                final p = app.payments[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    tileColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    subtitle: Text('Amount: ${p.amount.toStringAsFixed(2)}\nDate: ${p.date.toLocal()}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                  ),
+                );
+              },
+            ),
+=======
   State<PaymentsView> createState() => _PaymentsViewState();
 }
 
@@ -2627,6 +2713,7 @@ class _PaymentsViewState extends State<PaymentsView> {
               ),
         ],
       ),
+>>>>>>> ada3666a7ae7021d50248364e83e0eda6abf2950
     );
   }
 }
