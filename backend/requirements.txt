@@ -2,3 +2,8 @@ django==6.0.3
 django-cors-headers==4.7.0
 coverage==7.10.7
 psycopg[binary]==3.2.10
+celery==5.5.3
+redis==6.4.0
+pytest==8.4.2
+pytest-cov==7.0.0
+pytest-django==4.11.1

@@ -10,6 +10,14 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: pathway_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
 
   backend:
     build:
@@ -18,6 +26,7 @@ services:
     command: sh -c "until pg_isready -h db -U pathway; do sleep 1; done && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     depends_on:
       - db
+      - redis
     ports:
       - "8000:8000"
     volumes:
@@ -29,6 +38,32 @@ services:
       POSTGRES_PASSWORD: pathway
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+    container_name: pathway_worker
+    command: celery -A backend worker --loglevel=info
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app
+    environment:
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0,10.0.2.2
+      POSTGRES_DB: pathway
+      POSTGRES_USER: pathway
+      POSTGRES_PASSWORD: pathway
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    restart: unless-stopped
 
 volumes:
   postgres_data:

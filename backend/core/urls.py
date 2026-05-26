@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    health,
     metrics,
     login,
     openapi_json,
@@ -15,6 +16,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('health/', health),
     path('orders/', orders),
     path('orders/<int:order_id>/pay/', pay_order),
     path('register/', register),

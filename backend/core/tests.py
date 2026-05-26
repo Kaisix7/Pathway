@@ -4,13 +4,22 @@ from datetime import timedelta
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
+from .cache import _memory_cache, get_redis_client
 from .models import AppEvent, AirportOrder, AppUser
 
 
-@override_settings(ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
+@override_settings(
+    ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'],
+    CELERY_TASK_ALWAYS_EAGER=True,
+)
 class ApiTests(TestCase):
     def setUp(self):
         self.client = Client()
+        _memory_cache.clear()
+        try:
+            get_redis_client().flushdb()
+        except Exception:
+            pass
 
     def test_register_creates_user(self):
         response = self.client.post(
@@ -99,6 +108,53 @@ class ApiTests(TestCase):
         response = self.client.get('/api/metrics/')
         self.assertEqual(response.status_code, 200)
         self.assertIn('pathway_users_total', response.content.decode())
+
+    def test_health_endpoint_reports_database_and_cache(self):
+        response = self.client.get('/health')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['database'], 'ok')
+        self.assertIn(data['cache'], ['ok', 'memory-fallback'])
+
+    def test_cached_endpoints_return_cache_hits(self):
+        AppUser.objects.create(name='Aida', email='aida@example.com')
+
+        first_metrics = self.client.get('/api/metrics/')
+        second_metrics = self.client.get('/api/metrics/')
+        self.assertEqual(first_metrics['X-Cache'], 'MISS')
+        self.assertEqual(second_metrics['X-Cache'], 'HIT')
+
+        first_retention = self.client.get('/api/analytics/retention/')
+        second_retention = self.client.get('/api/analytics/retention/')
+        self.assertEqual(first_retention['X-Cache'], 'MISS')
+        self.assertEqual(second_retention['X-Cache'], 'HIT')
+
+        first_orders = self.client.get('/api/orders/')
+        second_orders = self.client.get('/api/orders/')
+        self.assertEqual(first_orders['X-Cache'], 'MISS')
+        self.assertEqual(second_orders['X-Cache'], 'HIT')
+
+    def test_login_rate_limit_returns_429_after_five_attempts(self):
+        AppUser.objects.create(name='Aida', email='rate-limit@example.com')
+
+        for _ in range(5):
+            response = self.client.post(
+                '/api/login/',
+                data=json.dumps({'email': 'rate-limit@example.com'}),
+                content_type='application/json',
+                REMOTE_ADDR='10.10.10.10',
+            )
+            self.assertEqual(response.status_code, 200)
+
+        blocked = self.client.post(
+            '/api/login/',
+            data=json.dumps({'email': 'rate-limit@example.com'}),
+            content_type='application/json',
+            REMOTE_ADDR='10.10.10.10',
+        )
+        self.assertEqual(blocked.status_code, 429)
 
     def test_track_event_and_retention(self):
         user = AppUser.objects.create(name='Aida', email='aida@example.com')
