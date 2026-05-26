@@ -23,6 +23,12 @@ class AppEvent(models.Model):
     def __str__(self):
         return f"{self.event_name} - {self.user_email or 'anonymous'}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user_email', 'event_name'], name='event_user_name_idx'),
+            models.Index(fields=['created_at'], name='event_created_idx'),
+        ]
+
 
 class AirportOrder(models.Model):
     STATUS_PENDING = 'pending'
@@ -64,3 +70,10 @@ class AirportOrder(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.tariff}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user_email'], name='order_user_email_idx'),
+            models.Index(fields=['created_at'], name='order_created_idx'),
+            models.Index(fields=['order_status'], name='order_status_idx'),
+        ]

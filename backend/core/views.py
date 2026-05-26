@@ -1,13 +1,43 @@
 import json
+import logging
 import random
 from datetime import timedelta
 
+from django.db import connection
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from .cache import cache_delete, cache_get, cache_set, cache_status
 from .integrations import send_posthog_event
 from .models import AppEvent, AppUser, AirportOrder
 from .security import mask_payload
+from .tasks import send_welcome_event
+
+
+logger = logging.getLogger(__name__)
+
+RATE_LIMITS = {
+    'login': {'limit': 5, 'window': 60},
+    'register': {'limit': 3, 'window': 3600},
+}
+
+
+def _client_ip(request):
+    forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
+def _is_rate_limited(request, action):
+    config = RATE_LIMITS[action]
+    key = f'rate:{action}:{_client_ip(request)}'
+    attempts = cache_get(key) or 0
+    if attempts >= config['limit']:
+        return True
+    cache_set(key, attempts + 1, ttl=config['window'])
+    return False
 
 
 def _openapi_spec():
@@ -56,6 +86,9 @@ def _openapi_spec():
             },
             '/api/metrics/': {
                 'get': {'summary': 'Prometheus metrics endpoint'},
+            },
+            '/health/': {
+                'get': {'summary': 'Health check with database and cache status'},
             },
             '/api/2fa/request/': {
                 'post': {'summary': 'Request OTP'},
@@ -112,6 +145,12 @@ def redoc_ui(request):
 
 
 def metrics(request):
+    cached = cache_get('metrics:v1')
+    if cached is not None:
+        response = HttpResponse(cached, content_type='text/plain; version=0.0.4')
+        response['X-Cache'] = 'HIT'
+        return response
+
     registrations = AppUser.objects.count()
     orders = AirportOrder.objects.count()
     events = AppEvent.objects.count()
@@ -134,7 +173,11 @@ def metrics(request):
         '# TYPE pathway_paid_orders_total gauge',
         f'pathway_paid_orders_total {paid_orders}',
     ]
-    return HttpResponse('\n'.join(lines), content_type='text/plain; version=0.0.4')
+    payload = '\n'.join(lines)
+    cache_set('metrics:v1', payload, ttl=60)
+    response = HttpResponse(payload, content_type='text/plain; version=0.0.4')
+    response['X-Cache'] = 'MISS'
+    return response
 
 
 def _order_payload(order):
@@ -160,15 +203,26 @@ def _order_payload(order):
 
 
 def retention_summary(request):
-    registrations = AppUser.objects.exclude(email='')
+    cached = cache_get('analytics:retention:v1')
+    if cached is not None:
+        response = JsonResponse(cached)
+        response['X-Cache'] = 'HIT'
+        return response
+
+    registrations = list(AppUser.objects.exclude(email=''))
     d1 = 0
     d7 = 0
     d30 = 0
+    emails = [user.email for user in registrations]
+    events_by_email = {email: set() for email in emails}
+
+    app_open_events = AppEvent.objects.filter(user_email__in=emails, event_name='app_open')
+    for event in app_open_events:
+        events_by_email.setdefault(event.user_email, set()).add(event.created_at.date())
 
     for user in registrations:
         registered_day = user.created_at.date()
-        user_events = AppEvent.objects.filter(user_email=user.email, event_name='app_open')
-        event_days = {event.created_at.date() for event in user_events}
+        event_days = events_by_email.get(user.email, set())
         if registered_day + timedelta(days=1) in event_days:
             d1 += 1
         if registered_day + timedelta(days=7) in event_days:
@@ -176,9 +230,9 @@ def retention_summary(request):
         if registered_day + timedelta(days=30) in event_days:
             d30 += 1
 
-    total = registrations.count() or 1
+    total = len(registrations) or 1
     data = {
-        'registered_users': registrations.count(),
+        'registered_users': len(registrations),
         'activation_count': AppEvent.objects.filter(event_name='activation').count(),
         'retention': {
             'D1': d1,
@@ -189,7 +243,33 @@ def retention_summary(request):
             'D30_rate': round(d30 / total, 2),
         },
     }
-    return JsonResponse(data)
+    cache_set('analytics:retention:v1', data, ttl=120)
+    response = JsonResponse(data)
+    response['X-Cache'] = 'MISS'
+    return response
+
+
+def health(request):
+    database_status = 'ok'
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+    except Exception:
+        database_status = 'error'
+
+    cache_state = cache_status()
+    status_code = 200 if database_status == 'ok' and cache_state in {'ok', 'memory-fallback'} else 503
+
+    return JsonResponse(
+        {
+            'status': 'ok' if status_code == 200 else 'error',
+            'database': database_status,
+            'cache': cache_state,
+            'version': 'week2-reliability',
+        },
+        status=status_code,
+    )
 
 
 @csrf_exempt
@@ -272,11 +352,21 @@ def orders(request):
 
     if request.method == 'GET':
         user_email = request.GET.get('user_email', '').strip()
+        cache_key = f'orders:v1:{user_email or "all"}'
+        cached = cache_get(cache_key)
+        if cached is not None:
+            response = JsonResponse(cached, safe=False)
+            response['X-Cache'] = 'HIT'
+            return response
+
         queryset = AirportOrder.objects.select_related('user').order_by('-created_at')
         if user_email:
             queryset = queryset.filter(user_email=user_email)
         data = [_order_payload(order) for order in queryset]
-        return JsonResponse(data, safe=False)
+        cache_set(cache_key, data, ttl=90)
+        response = JsonResponse(data, safe=False)
+        response['X-Cache'] = 'MISS'
+        return response
 
     elif request.method == 'POST':
         body = json.loads(request.body or '{}')
@@ -314,6 +404,10 @@ def orders(request):
             user_email=order.user_email,
             properties=mask_payload({'order_id': order.id, 'service_type': order.service_type}),
         )
+        cache_delete('orders:v1:all')
+        if order.user_email:
+            cache_delete(f'orders:v1:{order.user_email}')
+        cache_delete('metrics:v1')
 
         return JsonResponse({'status': 'created', 'id': order.id, 'order': _order_payload(order)})
 
@@ -340,6 +434,10 @@ def pay_order(request, order_id):
         user_email=order.user_email,
         properties=mask_payload({'order_id': order.id, 'amount': order.price}),
     )
+    cache_delete('orders:v1:all')
+    if order.user_email:
+        cache_delete(f'orders:v1:{order.user_email}')
+    cache_delete('metrics:v1')
 
     return JsonResponse({'status': 'done', 'order': _order_payload(order)})
 
@@ -356,6 +454,9 @@ def login(request):
     email = data.get('email', '').strip()
     if not email:
         return JsonResponse({'error': 'email is required'}, status=400)
+
+    if _is_rate_limited(request, 'login'):
+        return JsonResponse({'error': 'rate limit exceeded'}, status=429)
 
     user = AppUser.objects.filter(email=email).first()
     if not user:
@@ -389,6 +490,9 @@ def register(request):
         if not data.get("name") or not data.get("email"):
             return JsonResponse({"error": "name and email are required"}, status=400)
 
+        if _is_rate_limited(request, 'register'):
+            return JsonResponse({'error': 'rate limit exceeded'}, status=429)
+
         user, created = AppUser.objects.get_or_create(
             email=data.get("email"),
             defaults={"name": data.get("name"), "plan": data.get("plan", "free")},
@@ -409,6 +513,14 @@ def register(request):
             distinct_id=user.email,
             properties=mask_payload({'name': data.get('name'), 'email': data.get('email')}),
         )
+        cache_delete('metrics:v1')
+        try:
+            if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+                send_welcome_event.apply(args=[user.email, user.name])
+            else:
+                send_welcome_event.delay(user.email, user.name)
+        except Exception as exc:
+            logger.warning('celery_welcome_task_failed email=%s error=%s', user.email, exc)
 
         return JsonResponse({
             "status": "ok",
