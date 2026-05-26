@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from .cache import _memory_cache
+from .cache import _memory_cache, get_redis_client
 from .models import AppEvent, AirportOrder, AppUser
 
 
@@ -16,6 +16,10 @@ class ApiTests(TestCase):
     def setUp(self):
         self.client = Client()
         _memory_cache.clear()
+        try:
+            get_redis_client().flushdb()
+        except Exception:
+            pass
 
     def test_register_creates_user(self):
         response = self.client.post(
