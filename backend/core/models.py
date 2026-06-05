@@ -2,8 +2,21 @@ from django.db import models
 
 
 class AppUser(models.Model):
+    ROLE_GUEST = 'guest'
+    ROLE_USER = 'user'
+    ROLE_ADMIN = 'admin'
+
+    ROLE_CHOICES = [
+        (ROLE_GUEST, 'Guest'),
+        (ROLE_USER, 'User'),
+        (ROLE_ADMIN, 'Admin'),
+    ]
+
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=ROLE_GUEST)
+    password_hash = models.CharField(max_length=128, blank=True)
+    google_sub = models.CharField(max_length=255, blank=True, null=True, unique=True)
     plan = models.CharField(max_length=20, default='free')
     two_factor_enabled = models.BooleanField(default=False)
     otp_code = models.CharField(max_length=6, blank=True)
