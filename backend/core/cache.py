@@ -73,6 +73,22 @@ def cache_delete(key):
     _memory_cache.pop(key, None)
 
 
+def cache(key, ttl=300):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            cache_key = key.format(*args, **kwargs) if ('{' in key and '}' in key) else key
+            cached = cache_get(cache_key)
+            if cached is not None:
+                return cached
+            value = func(*args, **kwargs)
+            cache_set(cache_key, value, ttl=ttl)
+            return value
+
+        return wrapper
+
+    return decorator
+
+
 def cache_status():
     try:
         get_redis_client().ping()

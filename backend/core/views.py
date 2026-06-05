@@ -6,12 +6,21 @@ from datetime import timedelta
 from django.db import connection
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from .cache import cache_delete, cache_get, cache_set, cache_status
 from .integrations import send_posthog_event
 from .models import AppEvent, AppUser, AirportOrder
-from .security import mask_payload
+from .security import (
+    create_token,
+    get_current_user,
+    hash_password,
+    mask_payload,
+    require_admin,
+    validate_password_strength,
+    verify_password,
+)
 from .tasks import send_welcome_event
 
 
@@ -71,6 +80,12 @@ def _openapi_spec():
             '/api/login/': {
                 'post': {'summary': 'Passwordless login by email'},
             },
+            '/api/profile/': {
+                'get': {'summary': 'Get current authenticated user profile'},
+            },
+            '/api/admin/users/': {
+                'get': {'summary': 'Admin-only user list'},
+            },
             '/api/orders/': {
                 'get': {'summary': 'Get orders'},
                 'post': {'summary': 'Create order/service order'},
@@ -95,6 +110,12 @@ def _openapi_spec():
             },
             '/api/2fa/verify/': {
                 'post': {'summary': 'Verify OTP'},
+            },
+            '/api/oauth/google/login/': {
+                'get': {'summary': 'Start Google OAuth login'},
+            },
+            '/api/oauth/google/callback/': {
+                'get': {'summary': 'Google OAuth callback'},
             },
         },
     }
@@ -270,6 +291,104 @@ def health(request):
         },
         status=status_code,
     )
+
+
+def _user_payload(user):
+    return {
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'plan': user.plan,
+        'role': user.role,
+    }
+
+
+def _captcha_is_valid(token):
+    if not settings.CAPTCHA_SECRET_KEY:
+        return True
+    if not token:
+        return False
+
+    import urllib.parse
+    import urllib.request
+
+    payload = urllib.parse.urlencode({
+        'secret': settings.CAPTCHA_SECRET_KEY,
+        'response': token,
+    }).encode('utf-8')
+    try:
+        request = urllib.request.Request(
+            'https://www.google.com/recaptcha/api/siteverify',
+            data=payload,
+            method='POST',
+        )
+        with urllib.request.urlopen(request, timeout=3) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            return data.get('success') is True
+    except Exception as exc:
+        logger.warning('captcha_verification_failed error=%s', exc)
+        return False
+
+
+def google_oauth_login(request):
+    params = {
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'access_type': 'offline',
+        'prompt': 'select_account',
+    }
+    query = '&'.join(f'{key}={value}' for key, value in params.items())
+    return redirect(f'https://accounts.google.com/o/oauth2/v2/auth?{query}')
+
+
+@csrf_exempt
+def google_oauth_callback(request):
+    email = request.GET.get('email', '').strip()
+    name = request.GET.get('name', '').strip() or email.split('@')[0]
+    google_id = request.GET.get('google_id', '').strip()
+
+    if not email:
+        return JsonResponse({'error': 'google callback email is required'}, status=400)
+
+    user, _ = AppUser.objects.get_or_create(
+        email=email,
+        defaults={'name': name, 'google_id': google_id},
+    )
+    updates = []
+    if google_id and user.google_id != google_id:
+        user.google_id = google_id
+        updates.append('google_id')
+    if name and user.name != name:
+        user.name = name
+        updates.append('name')
+    if updates:
+        user.save(update_fields=updates)
+
+    return JsonResponse({'status': 'ok', 'token': create_token(user), 'user': _user_payload(user)})
+
+
+def profile(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    user = get_current_user(request)
+    if not user:
+        return JsonResponse({'error': 'authentication required'}, status=401)
+    return JsonResponse({'user': _user_payload(user)})
+
+
+def admin_users(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    user, error = require_admin(request)
+    if error:
+        return error
+
+    data = [_user_payload(app_user) for app_user in AppUser.objects.order_by('id')]
+    return JsonResponse({'admin': _user_payload(user), 'users': data})
 
 
 @csrf_exempt
@@ -460,7 +579,13 @@ def login(request):
 
     user = AppUser.objects.filter(email=email).first()
     if not user:
+        logger.warning('security_event=failed_login email=%s ip=%s reason=user_not_found', email, _client_ip(request))
         return JsonResponse({'error': 'user not found'}, status=404)
+
+    password = data.get('password', '')
+    if not verify_password(password, user.password_hash):
+        logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
+        return JsonResponse({'error': 'invalid credentials'}, status=401)
 
     AppEvent.objects.create(
         event_name='login',
@@ -470,12 +595,8 @@ def login(request):
 
     return JsonResponse({
         'status': 'ok',
-        'user': {
-            'id': user.id,
-            'name': user.name,
-            'email': user.email,
-            'plan': user.plan,
-        },
+        'token': create_token(user),
+        'user': _user_payload(user),
     })
 
 
@@ -490,18 +611,37 @@ def register(request):
         if not data.get("name") or not data.get("email"):
             return JsonResponse({"error": "name and email are required"}, status=400)
 
+        password_error = validate_password_strength(data.get('password'))
+        if password_error:
+            return JsonResponse({'error': password_error}, status=400)
+
+        if not _captcha_is_valid(data.get('captcha_token')):
+            return JsonResponse({'error': 'invalid captcha'}, status=400)
+
         if _is_rate_limited(request, 'register'):
             return JsonResponse({'error': 'rate limit exceeded'}, status=429)
 
+        defaults = {
+            "name": data.get("name"),
+            "plan": data.get("plan", "free"),
+            "role": data.get("role", AppUser.ROLE_USER),
+        }
+        if data.get('password'):
+            defaults['password_hash'] = hash_password(data.get('password'))
+
         user, created = AppUser.objects.get_or_create(
             email=data.get("email"),
-            defaults={"name": data.get("name"), "plan": data.get("plan", "free")},
+            defaults=defaults,
         )
 
         if not created and (user.name != data.get("name") or user.plan != data.get("plan", user.plan)):
             user.name = data.get("name")
             user.plan = data.get("plan", user.plan)
-            user.save(update_fields=["name", "plan"])
+            update_fields = ["name", "plan"]
+            if data.get('password'):
+                user.password_hash = hash_password(data.get('password'))
+                update_fields.append('password_hash')
+            user.save(update_fields=update_fields)
 
         AppEvent.objects.create(
             event_name='registration',
@@ -525,12 +665,8 @@ def register(request):
         return JsonResponse({
             "status": "ok",
             "id": user.id,
-            "user": {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "plan": user.plan,
-            },
+            "token": create_token(user),
+            "user": _user_payload(user),
         })
 
     return JsonResponse({"error": "Method not allowed"}, status=405)

@@ -6,7 +6,13 @@ import 'package:http/http.dart' as http;
 import 'models.dart';
 
 class ApiService {
+  static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+
   static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl;
+    }
+
     if (kIsWeb) {
       return 'http://127.0.0.1:8000/api';
     }
