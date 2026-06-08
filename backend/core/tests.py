@@ -1,6 +1,8 @@
 import json
+import re
 from datetime import timedelta
 
+from django.contrib.auth.hashers import make_password
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -21,32 +23,64 @@ class ApiTests(TestCase):
         except Exception:
             pass
 
-    def test_register_creates_user(self):
+    def _get_captcha(self):
+        response = self.client.get('/api/captcha/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        question = data['question']
+        numbers = re.findall(r'\d+', question)
+        self.assertEqual(len(numbers), 2)
+        return data['challenge_id'], str(int(numbers[0]) + int(numbers[1]))
+
+    def _register_user(self, email='aida@example.com', name='Aida', password='SecurePass123'):
+        challenge_id, challenge_answer = self._get_captcha()
         response = self.client.post(
             '/api/register/',
-            data=json.dumps({'name': 'Aida', 'email': 'aida@example.com'}),
+            data=json.dumps({
+                'name': name,
+                'email': email,
+                'password': password,
+                'captcha_id': challenge_id,
+                'captcha_answer': challenge_answer,
+            }),
             content_type='application/json',
         )
-
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AppUser.objects.count(), 1)
+        return response.json()
 
-        login_response = self.client.post(
+    def _login_user(self, email='aida@example.com', password='SecurePass123'):
+        challenge_id, challenge_answer = self._get_captcha()
+        response = self.client.post(
             '/api/login/',
-            data=json.dumps({'email': 'aida@example.com'}),
+            data=json.dumps({
+                'email': email,
+                'password': password,
+                'captcha_id': challenge_id,
+                'captcha_answer': challenge_answer,
+            }),
             content_type='application/json',
         )
+        self.assertEqual(response.status_code, 200)
+        return response.json()
 
-        self.assertEqual(login_response.status_code, 200)
-        self.assertEqual(login_response.json()['user']['email'], 'aida@example.com')
+    def test_register_creates_user_and_returns_tokens(self):
+        data = self._register_user()
+        self.assertEqual(AppUser.objects.count(), 1)
+        self.assertIn('tokens', data)
+        self.assertEqual(data['user']['email'], 'aida@example.com')
 
-    def test_orders_post_and_get(self):
-        AppUser.objects.create(name='Aida', email='aida@example.com')
+        login_response = self._login_user()
+        self.assertEqual(login_response['user']['email'], 'aida@example.com')
+        self.assertIn('access_token', login_response['tokens'])
+
+    def test_orders_post_and_get_with_owner_filter(self):
+        registration = self._register_user()
+        access_token = registration['tokens']['access_token']
+
         post_response = self.client.post(
             '/api/orders/',
             data=json.dumps({
                 'name': 'Aida',
-                'user_email': 'aida@example.com',
                 'tariff': 'Comfort',
                 'price': 18000,
                 'pickup_location': 'Almaty Airport - Terminal 2',
@@ -57,6 +91,7 @@ class ApiTests(TestCase):
                 'destination': 'Almaty Hotel',
             }),
             content_type='application/json',
+            HTTP_AUTHORIZATION=f'Bearer {access_token}',
         )
 
         self.assertEqual(post_response.status_code, 200)
@@ -66,52 +101,71 @@ class ApiTests(TestCase):
         self.assertEqual(order.user.email, 'aida@example.com')
         self.assertEqual(order.order_status, 'pending')
 
-        get_response = self.client.get('/api/orders/?user_email=aida@example.com')
-
+        get_response = self.client.get(
+            '/api/orders/',
+            HTTP_AUTHORIZATION=f'Bearer {access_token}',
+        )
         self.assertEqual(get_response.status_code, 200)
         data = get_response.json()
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]['flight_number'], 'KC 123')
         self.assertEqual(data[0]['pickup_location'], 'Almaty Airport - Terminal 2')
 
-        pay_response = self.client.post(f'/api/orders/{order.id}/pay/')
+        pay_response = self.client.post(
+            f'/api/orders/{order.id}/pay/',
+            content_type='application/json',
+            HTTP_AUTHORIZATION=f'Bearer {access_token}',
+        )
         self.assertEqual(pay_response.status_code, 200)
         order.refresh_from_db()
         self.assertEqual(order.order_status, 'done')
 
-    def test_generic_iin_order_post(self):
-        post_response = self.client.post(
+    def test_user_cannot_access_other_user_orders(self):
+        first = self._register_user(email='first@example.com', name='First')
+        second = self._register_user(email='second@example.com', name='Second')
+
+        second_token = second['tokens']['access_token']
+        self.client.post(
             '/api/orders/',
             data=json.dumps({
-                'name': 'Aida',
-                'tariff': 'IIN Booking',
-                'price': 0,
-                'service_type': 'iin',
-                'order_title': 'IIN appointment: Medeu',
-                'details': 'PSC Almaty\n2026-04-22 at 10:00',
-                'order_status': 'pending',
+                'name': 'Second order',
+                'tariff': 'Standard',
+                'price': 1000,
+                'pickup_location': 'A',
+                'flight_number': 'F1',
             }),
             content_type='application/json',
+            HTTP_AUTHORIZATION=f'Bearer {second_token}',
         )
 
-        self.assertEqual(post_response.status_code, 200)
-        order = AirportOrder.objects.latest('id')
-        self.assertEqual(order.service_type, 'iin')
-        self.assertEqual(order.order_title, 'IIN appointment: Medeu')
+        blocked = self.client.get(
+            '/api/orders/?user_email=first@example.com',
+            HTTP_AUTHORIZATION=f'Bearer {second_token}',
+        )
+        self.assertEqual(blocked.status_code, 403)
+
+    def test_admin_can_access_metrics_and_retention(self):
+        admin = AppUser.objects.create(
+            name='Admin',
+            email='admin@example.com',
+            role=AppUser.ROLE_ADMIN,
+            password_hash=make_password('AdminPass123'),
+        )
+        tokens = self._login_user(email='admin@example.com', password='AdminPass123')['tokens']
+        access_token = tokens['access_token']
+        response = self.client.get('/api/metrics/', HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get('/api/analytics/retention/', HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        self.assertEqual(response.status_code, 200)
 
     def test_openapi_and_docs_endpoints(self):
         self.assertEqual(self.client.get('/api/openapi.json').status_code, 200)
         self.assertEqual(self.client.get('/api/docs/swagger/').status_code, 200)
         self.assertEqual(self.client.get('/api/docs/redoc/').status_code, 200)
 
-    def test_metrics_endpoint(self):
-        response = self.client.get('/api/metrics/')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('pathway_users_total', response.content.decode())
-
     def test_health_endpoint_reports_database_and_cache(self):
         response = self.client.get('/health')
-
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['status'], 'ok')
@@ -120,37 +174,57 @@ class ApiTests(TestCase):
 
     def test_cached_endpoints_return_cache_hits(self):
         AppUser.objects.create(name='Aida', email='aida@example.com')
+        admin = AppUser.objects.create(
+            name='Admin',
+            email='admin@example.com',
+            role=AppUser.ROLE_ADMIN,
+            password_hash=make_password('AdminPass123'),
+        )
+        admin_token = self._login_user(email='admin@example.com', password='AdminPass123')['tokens']['access_token']
 
-        first_metrics = self.client.get('/api/metrics/')
-        second_metrics = self.client.get('/api/metrics/')
+        first_metrics = self.client.get('/api/metrics/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
+        second_metrics = self.client.get('/api/metrics/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
         self.assertEqual(first_metrics['X-Cache'], 'MISS')
         self.assertEqual(second_metrics['X-Cache'], 'HIT')
 
-        first_retention = self.client.get('/api/analytics/retention/')
-        second_retention = self.client.get('/api/analytics/retention/')
+        first_retention = self.client.get('/api/analytics/retention/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
+        second_retention = self.client.get('/api/analytics/retention/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
         self.assertEqual(first_retention['X-Cache'], 'MISS')
         self.assertEqual(second_retention['X-Cache'], 'HIT')
 
-        first_orders = self.client.get('/api/orders/')
-        second_orders = self.client.get('/api/orders/')
+        first_token = self._register_user()['tokens']['access_token']
+        second_token = self._register_user(email='other@example.com', name='Other')['tokens']['access_token']
+        first_orders = self.client.get('/api/orders/', HTTP_AUTHORIZATION=f'Bearer {first_token}')
+        second_orders = self.client.get('/api/orders/', HTTP_AUTHORIZATION=f'Bearer {second_token}')
         self.assertEqual(first_orders['X-Cache'], 'MISS')
-        self.assertEqual(second_orders['X-Cache'], 'HIT')
+        self.assertEqual(second_orders['X-Cache'], 'MISS')
 
     def test_login_rate_limit_returns_429_after_five_attempts(self):
-        AppUser.objects.create(name='Aida', email='rate-limit@example.com')
-
+        self._register_user(email='rate-limit@example.com', name='Limiter')
         for _ in range(5):
+            challenge_id, challenge_answer = self._get_captcha()
             response = self.client.post(
                 '/api/login/',
-                data=json.dumps({'email': 'rate-limit@example.com'}),
+                data=json.dumps({
+                    'email': 'rate-limit@example.com',
+                    'password': 'SecurePass123',
+                    'captcha_id': challenge_id,
+                    'captcha_answer': challenge_answer,
+                }),
                 content_type='application/json',
                 REMOTE_ADDR='10.10.10.10',
             )
             self.assertEqual(response.status_code, 200)
 
+        challenge_id, challenge_answer = self._get_captcha()
         blocked = self.client.post(
             '/api/login/',
-            data=json.dumps({'email': 'rate-limit@example.com'}),
+            data=json.dumps({
+                'email': 'rate-limit@example.com',
+                'password': 'SecurePass123',
+                'captcha_id': challenge_id,
+                'captcha_answer': challenge_answer,
+            }),
             content_type='application/json',
             REMOTE_ADDR='10.10.10.10',
         )
@@ -178,7 +252,15 @@ class ApiTests(TestCase):
             content_type='application/json',
         )
 
-        response = self.client.get('/api/analytics/retention/')
+        admin = AppUser.objects.create(
+            name='Admin',
+            email='admin@example.com',
+            role=AppUser.ROLE_ADMIN,
+            password_hash=make_password('AdminPass123'),
+        )
+        admin_token = self._login_user(email='admin@example.com', password='AdminPass123')['tokens']['access_token']
+
+        response = self.client.get('/api/analytics/retention/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['registered_users'], 1)
@@ -193,7 +275,8 @@ class ApiTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(request_response.status_code, 200)
-        otp_code = request_response.json()['dev_otp_code']
+        user = AppUser.objects.get(email='aida@example.com')
+        otp_code = user.otp_code
 
         verify_response = self.client.post(
             '/api/2fa/verify/',

@@ -6,10 +6,15 @@ import 'package:http/http.dart' as http;
 class Analytics {
   static const String _posthogApiKey = String.fromEnvironment('POSTHOG_API_KEY');
   static const String _posthogHost = String.fromEnvironment('POSTHOG_HOST', defaultValue: 'https://app.posthog.com');
+  static const String _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
+      if (_apiBaseUrl.isNotEmpty) {
+        final trimmed = _apiBaseUrl.trimRight().replaceAll(RegExp(r'/+$'), '');
+        return trimmed.endsWith('/api') ? trimmed : '$trimmed/api';
+      }
+      return '${Uri.base.origin}/api';
     }
 
     switch (defaultTargetPlatform) {

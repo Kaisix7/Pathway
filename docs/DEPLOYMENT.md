@@ -43,6 +43,24 @@ python manage.py migrate
 
 7. В Flutter заменить локальный API URL на HTTPS URL backend.
 
+Если frontend на Render как статический сайт, то нужно добавить `API_BASE_URL` в environment variables и передать его в сборку Flutter:
+
+```text
+API_BASE_URL=https://your-backend.onrender.com
+```
+
+Build command на Flutter static site:
+
+```bash
+flutter build web --dart-define=API_BASE_URL=$API_BASE_URL
+```
+
+Publish directory:
+
+```text
+build/web
+```
+
 ## HTTPS
 
 Render и Railway обычно дают HTTPS автоматически для публичного домена.

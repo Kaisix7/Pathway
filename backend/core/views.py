@@ -8,6 +8,22 @@ from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from .auth import (
+    CaptchaError,
+    AuthenticationError,
+    AuthorizationError,
+    authenticate_request,
+    create_captcha_challenge,
+    create_or_update_user_from_google,
+    create_token_set,
+    create_user_from_google_code,
+    hash_password,
+    refresh_access_token,
+    require_role,
+    sanitize_event_properties,
+    verify_captcha,
+    verify_password,
+)
 from .cache import cache_delete, cache_get, cache_set, cache_status
 from .integrations import send_posthog_event
 from .models import AppEvent, AppUser, AirportOrder
@@ -48,6 +64,15 @@ def _openapi_spec():
             'version': '1.0.0',
             'description': 'Basic API docs for registration, orders, events, retention, metrics and 2FA.',
         },
+        'components': {
+            'securitySchemes': {
+                'BearerAuth': {
+                    'type': 'http',
+                    'scheme': 'bearer',
+                    'bearerFormat': 'JWT',
+                }
+            }
+        },
         'paths': {
             '/api/register/': {
                 'post': {
@@ -69,14 +94,27 @@ def _openapi_spec():
                 },
             },
             '/api/login/': {
-                'post': {'summary': 'Passwordless login by email'},
+                'post': {'summary': 'Login with email, password and CAPTCHA'},
+            },
+            '/api/register/': {
+                'post': {'summary': 'Register new user with CAPTCHA'},
+            },
+            '/api/captcha/': {
+                'get': {'summary': 'Request a CAPTCHA challenge'},
+                'post': {'summary': 'Verify CAPTCHA challenge answer'},
+            },
+            '/api/refresh-token/': {
+                'post': {'summary': 'Refresh an access token using a refresh token'},
+            },
+            '/api/oauth/google/': {
+                'post': {'summary': 'Complete Google OAuth 2.0 login flow'},
             },
             '/api/orders/': {
-                'get': {'summary': 'Get orders'},
-                'post': {'summary': 'Create order/service order'},
+                'get': {'summary': 'Get orders for the authenticated user or admin'},
+                'post': {'summary': 'Create order/service order on behalf of authenticated user'},
             },
             '/api/orders/{id}/pay/': {
-                'post': {'summary': 'Mark order as paid/done'},
+                'post': {'summary': 'Mark order as paid/done with ownership check'},
             },
             '/api/events/': {
                 'post': {'summary': 'Track analytics event'},
@@ -144,6 +182,7 @@ def redoc_ui(request):
     return HttpResponse(html)
 
 
+@require_role([AppUser.ROLE_ADMIN])
 def metrics(request):
     cached = cache_get('metrics:v1')
     if cached is not None:
@@ -202,6 +241,7 @@ def _order_payload(order):
     }
 
 
+@require_role([AppUser.ROLE_ADMIN])
 def retention_summary(request):
     cached = cache_get('analytics:retention:v1')
     if cached is not None:
@@ -209,7 +249,9 @@ def retention_summary(request):
         response['X-Cache'] = 'HIT'
         return response
 
-    registrations = list(AppUser.objects.exclude(email=''))
+    registrations = list(
+        AppUser.objects.exclude(email='').exclude(role=AppUser.ROLE_ADMIN)
+    )
     d1 = 0
     d7 = 0
     d30 = 0
@@ -284,10 +326,20 @@ def track_event(request):
     if not body.get('event_name'):
         return JsonResponse({'error': 'event_name is required'}, status=400)
 
+    user = None
+    try:
+        user = authenticate_request(request, required=False)
+    except AuthenticationError:
+        user = None
+
+    user_email = body.get('user_email', '').strip()
+    if user and user_email and user_email != user.email:
+        return JsonResponse({'error': 'authenticated user mismatch'}, status=403)
+
     event = AppEvent.objects.create(
         event_name=body.get('event_name'),
-        user_email=body.get('user_email', ''),
-        properties=mask_payload(body.get('properties', {})),
+        user_email=user_email,
+        properties=sanitize_event_properties(body.get('properties', {})),
     )
     send_posthog_event(
         event_name=event.event_name,
@@ -320,7 +372,10 @@ def request_2fa(request):
     user.otp_expires_at = timezone.now() + timedelta(minutes=10)
     user.save(update_fields=['two_factor_enabled', 'otp_code', 'otp_expires_at'])
 
-    return JsonResponse({'status': 'otp_sent', 'dev_otp_code': otp_code})
+    payload = {'status': 'otp_sent'}
+    if settings.DEBUG:
+        payload['dev_otp_code'] = otp_code
+    return JsonResponse(payload)
 
 
 @csrf_exempt
@@ -351,8 +406,18 @@ def orders(request):
         return JsonResponse({'status': 'ok'})
 
     if request.method == 'GET':
-        user_email = request.GET.get('user_email', '').strip()
-        cache_key = f'orders:v1:{user_email or "all"}'
+        request = request
+        try:
+            request.auth_user = authenticate_request(request)
+        except AuthenticationError as exc:
+            return JsonResponse({'error': str(exc)}, status=401)
+
+        user = request.auth_user
+        query_email = request.GET.get('user_email', '').strip()
+        if user.role != AppUser.ROLE_ADMIN and query_email and query_email != user.email:
+            return JsonResponse({'error': 'forbidden'}, status=403)
+
+        cache_key = f'orders:v1:{query_email or user.email if user.role != AppUser.ROLE_ADMIN else "all"}'
         cached = cache_get(cache_key)
         if cached is not None:
             response = JsonResponse(cached, safe=False)
@@ -360,8 +425,11 @@ def orders(request):
             return response
 
         queryset = AirportOrder.objects.select_related('user').order_by('-created_at')
-        if user_email:
-            queryset = queryset.filter(user_email=user_email)
+        if user.role != AppUser.ROLE_ADMIN:
+            queryset = queryset.filter(user_email=user.email)
+        elif query_email:
+            queryset = queryset.filter(user_email=query_email)
+
         data = [_order_payload(order) for order in queryset]
         cache_set(cache_key, data, ttl=90)
         response = JsonResponse(data, safe=False)
@@ -369,6 +437,11 @@ def orders(request):
         return response
 
     elif request.method == 'POST':
+        try:
+            request.auth_user = authenticate_request(request)
+        except AuthenticationError as exc:
+            return JsonResponse({'error': str(exc)}, status=401)
+
         body = json.loads(request.body or '{}')
         service_type = body.get('service_type', 'airport')
 
@@ -378,11 +451,16 @@ def orders(request):
         if service_type == 'airport' and (not body.get('tariff') or body.get('price') is None):
             return JsonResponse({'error': 'name, tariff and price are required'}, status=400)
 
-        user_email = body.get('user_email', '').strip()
-        user = AppUser.objects.filter(email=user_email).first() if user_email else None
+        if request.auth_user.role == AppUser.ROLE_ADMIN and body.get('user_email'):
+            target_email = body.get('user_email').strip()
+            target_user = AppUser.objects.filter(email=target_email).first()
+            user_email = target_email
+        else:
+            target_user = request.auth_user
+            user_email = request.auth_user.email
 
         order = AirportOrder.objects.create(
-            user=user,
+            user=target_user,
             user_email=user_email,
             name=body.get('name'),
             tariff=body.get('tariff', ''),
@@ -413,6 +491,77 @@ def orders(request):
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+@csrf_exempt
+def captcha_challenge(request):
+    if request.method == 'GET':
+        return JsonResponse(create_captcha_challenge())
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    body = json.loads(request.body or '{}')
+    try:
+        verify_captcha(body.get('challenge_id'), body.get('answer'))
+        return JsonResponse({'status': 'verified'})
+    except CaptchaError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+
+@csrf_exempt
+def refresh_token(request):
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    body = json.loads(request.body or '{}')
+    refresh_token_value = body.get('refresh_token')
+    if not refresh_token_value:
+        return JsonResponse({'error': 'refresh_token is required'}, status=400)
+
+    try:
+        access_token = refresh_access_token(refresh_token_value)
+    except AuthenticationError as exc:
+        return JsonResponse({'error': str(exc)}, status=401)
+
+    return JsonResponse({'access_token': access_token})
+
+
+@csrf_exempt
+def google_oauth(request):
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    body = json.loads(request.body or '{}')
+    code = body.get('code')
+    redirect_uri = body.get('redirect_uri') or settings.GOOGLE_OAUTH_REDIRECT_URI
+    if not code:
+        return JsonResponse({'error': 'code is required'}, status=400)
+
+    try:
+        user = create_user_from_google_code(code, redirect_uri)
+    except AuthenticationError as exc:
+        logger.warning('google_oauth_failed error=%s', exc)
+        return JsonResponse({'error': str(exc)}, status=401)
+
+    tokens = create_token_set(user)
+    AppEvent.objects.create(event_name='oauth_login', user_email=user.email, properties={'provider': 'google'})
+
+    return JsonResponse({
+        'status': 'ok',
+        'tokens': tokens,
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'role': user.role,
+            'plan': user.plan,
+        },
+    })
 
 @csrf_exempt
 def pay_order(request, order_id):
@@ -422,9 +571,20 @@ def pay_order(request, order_id):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+    try:
+        request.auth_user = authenticate_request(request)
+    except AuthenticationError as exc:
+        return JsonResponse({'error': str(exc)}, status=401)
+
     order = AirportOrder.objects.filter(id=order_id).first()
     if not order:
         return JsonResponse({'error': 'order not found'}, status=404)
+
+    if request.auth_user.role != AppUser.ROLE_ADMIN and order.user_email != request.auth_user.email:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+
+    if order.order_status != AirportOrder.STATUS_PENDING:
+        return JsonResponse({'error': 'order cannot be paid in current status'}, status=400)
 
     order.order_status = AirportOrder.STATUS_DONE
     order.save(update_fields=['order_status'])
@@ -444,93 +604,133 @@ def pay_order(request, order_id):
 
 @csrf_exempt
 def login(request):
-    if request.method == "OPTIONS":
-        return JsonResponse({"status": "ok"})
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
 
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     data = json.loads(request.body or '{}')
     email = data.get('email', '').strip()
-    if not email:
-        return JsonResponse({'error': 'email is required'}, status=400)
+    password = data.get('password', '')
+    captcha_id = data.get('captcha_id')
+    captcha_answer = data.get('captcha_answer')
+
+    if not email or not password:
+        return JsonResponse({'error': 'email and password are required'}, status=400)
 
     if _is_rate_limited(request, 'login'):
         return JsonResponse({'error': 'rate limit exceeded'}, status=429)
 
-    user = AppUser.objects.filter(email=email).first()
-    if not user:
-        return JsonResponse({'error': 'user not found'}, status=404)
+    try:
+        verify_captcha(captcha_id, captcha_answer)
+    except CaptchaError as exc:
+        logger.warning('failed_captcha login ip=%s email=%s error=%s', _client_ip(request), email, exc)
+        return JsonResponse({'error': str(exc)}, status=400)
 
-    AppEvent.objects.create(
-        event_name='login',
-        user_email=user.email,
-        properties={},
-    )
+    user = AppUser.objects.filter(email=email).first()
+    if not user or not verify_password(password, user.password_hash):
+        logger.warning('failed_login email=%s ip=%s', email, _client_ip(request))
+        return JsonResponse({'error': 'invalid credentials'}, status=401)
+
+    if user.two_factor_enabled:
+        otp_code = data.get('otp_code')
+        if not otp_code or user.otp_code != otp_code or not user.otp_expires_at or user.otp_expires_at < timezone.now():
+            logger.warning('failed_2fa email=%s ip=%s', email, _client_ip(request))
+            return JsonResponse({'error': 'otp invalid or missing'}, status=403)
+        user.otp_code = ''
+        user.save(update_fields=['otp_code'])
+
+    AppEvent.objects.create(event_name='login', user_email=user.email, properties={})
+    tokens = create_token_set(user)
 
     return JsonResponse({
         'status': 'ok',
+        'tokens': tokens,
         'user': {
             'id': user.id,
             'name': user.name,
             'email': user.email,
             'plan': user.plan,
+            'role': user.role,
         },
     })
 
 
 @csrf_exempt
 def register(request):
-    if request.method == "OPTIONS":
-        return JsonResponse({"status": "ok"})
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
 
-    if request.method == "POST":
-        data = json.loads(request.body or '{}')
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-        if not data.get("name") or not data.get("email"):
-            return JsonResponse({"error": "name and email are required"}, status=400)
+    data = json.loads(request.body or '{}')
+    name = data.get('name', '').strip()
+    email = data.get('email', '').strip()
+    password = data.get('password', '')
+    plan = data.get('plan', 'free')
+    captcha_id = data.get('captcha_id')
+    captcha_answer = data.get('captcha_answer')
 
-        if _is_rate_limited(request, 'register'):
-            return JsonResponse({'error': 'rate limit exceeded'}, status=429)
+    if not name or not email or not password:
+        return JsonResponse({'error': 'name, email and password are required'}, status=400)
 
-        user, created = AppUser.objects.get_or_create(
-            email=data.get("email"),
-            defaults={"name": data.get("name"), "plan": data.get("plan", "free")},
-        )
+    if _is_rate_limited(request, 'register'):
+        return JsonResponse({'error': 'rate limit exceeded'}, status=429)
 
-        if not created and (user.name != data.get("name") or user.plan != data.get("plan", user.plan)):
-            user.name = data.get("name")
-            user.plan = data.get("plan", user.plan)
-            user.save(update_fields=["name", "plan"])
+    try:
+        verify_captcha(captcha_id, captcha_answer)
+    except CaptchaError as exc:
+        logger.warning('failed_captcha register ip=%s email=%s error=%s', _client_ip(request), email, exc)
+        return JsonResponse({'error': str(exc)}, status=400)
 
-        AppEvent.objects.create(
-            event_name='registration',
-            user_email=user.email,
-            properties=mask_payload({'name': data.get('name'), 'email': data.get('email')}),
-        )
-        send_posthog_event(
-            event_name='registration',
-            distinct_id=user.email,
-            properties=mask_payload({'name': data.get('name'), 'email': data.get('email')}),
-        )
-        cache_delete('metrics:v1')
-        try:
-            if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
-                send_welcome_event.apply(args=[user.email, user.name])
-            else:
-                send_welcome_event.delay(user.email, user.name)
-        except Exception as exc:
-            logger.warning('celery_welcome_task_failed email=%s error=%s', user.email, exc)
+    user, created = AppUser.objects.get_or_create(
+        email=email,
+        defaults={
+            'name': name,
+            'plan': plan,
+            'role': AppUser.ROLE_USER,
+            'password_hash': hash_password(password),
+        },
+    )
 
-        return JsonResponse({
-            "status": "ok",
-            "id": user.id,
-            "user": {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "plan": user.plan,
-            },
-        })
+    if not created:
+        if user.name != name or user.plan != plan or not user.password_hash:
+            user.name = name
+            user.plan = plan
+            user.password_hash = hash_password(password)
+            user.save(update_fields=['name', 'plan', 'password_hash'])
 
-    return JsonResponse({"error": "Method not allowed"}, status=405)
+    AppEvent.objects.create(
+        event_name='registration',
+        user_email=user.email,
+        properties=mask_payload({'name': name, 'email': email}),
+    )
+    send_posthog_event(
+        event_name='registration',
+        distinct_id=user.email,
+        properties=mask_payload({'name': name, 'email': email}),
+    )
+    cache_delete('metrics:v1')
+    try:
+        if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+            send_welcome_event.apply(args=[user.email, user.name])
+        else:
+            send_welcome_event.delay(user.email, user.name)
+    except Exception as exc:
+        logger.warning('celery_welcome_task_failed email=%s error=%s', user.email, exc)
+
+    tokens = create_token_set(user)
+    return JsonResponse({
+        'status': 'ok',
+        'id': user.id,
+        'tokens': tokens,
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'plan': user.plan,
+            'role': user.role,
+        },
+    })
