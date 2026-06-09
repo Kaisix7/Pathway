@@ -2,9 +2,20 @@ from django.db import models
 
 
 class AppUser(models.Model):
+    ROLE_USER = 'user'
+    ROLE_ADMIN = 'admin'
+
+    ROLE_CHOICES = [
+        (ROLE_USER, 'User'),
+        (ROLE_ADMIN, 'Admin'),
+    ]
+
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     plan = models.CharField(max_length=20, default='free')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_USER)
+    password_hash = models.CharField(max_length=255, blank=True)
+    google_id = models.CharField(max_length=255, blank=True)
     two_factor_enabled = models.BooleanField(default=False)
     otp_code = models.CharField(max_length=6, blank=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
@@ -12,6 +23,12 @@ class AppUser(models.Model):
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['email'], name='appuser_email_idx'),
+            models.Index(fields=['created_at'], name='appuser_created_idx'),
+        ]
 
 
 class AppEvent(models.Model):

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'api_service.dart';
+
 class AirportView extends StatefulWidget {
   const AirportView({super.key});
 
@@ -21,7 +23,7 @@ class _AirportViewState extends State<AirportView> {
   List orders = [];
 
   Future<void> createOrder() async {
-    final url = Uri.parse('http://127.0.0.1:8000/api/orders/');
+    final url = Uri.parse('${ApiService.baseUrl}/orders/');
 
     final response = await http.post(
       url,
@@ -41,7 +43,7 @@ class _AirportViewState extends State<AirportView> {
   }
 
   Future<void> fetchOrders() async {
-    final url = Uri.parse('http://127.0.0.1:8000/api/orders/');
+    final url = Uri.parse('${ApiService.baseUrl}/orders/');
 
     final response = await http.get(url);
 

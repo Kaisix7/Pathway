@@ -1,11 +1,15 @@
-from django.urls import path
+from django.urls import path, include
 from .views import (
+    admin_users,
+    google_oauth_callback,
+    google_oauth_login,
     health,
     metrics,
     login,
     openapi_json,
     orders,
     pay_order,
+    profile,
     redoc_ui,
     register,
     request_2fa,
@@ -21,6 +25,8 @@ urlpatterns = [
     path('orders/<int:order_id>/pay/', pay_order),
     path('register/', register),
     path('login/', login),
+    path('profile/', profile),
+    path('admin/users/', admin_users),
     path('events/', track_event),
     path('analytics/retention/', retention_summary),
     path('metrics/', metrics),
@@ -29,4 +35,7 @@ urlpatterns = [
     path('docs/redoc/', redoc_ui),
     path('2fa/request/', request_2fa),
     path('2fa/verify/', verify_2fa),
+    path('auth/', include('social_django.urls', namespace='social')),
+    path('oauth/google/', google_oauth_login),
+    path('oauth/google/callback/', google_oauth_callback),
 ]

@@ -8,11 +8,36 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: pathway_test
+          POSTGRES_USER: pathway
+          POSTGRES_PASSWORD: pathway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pathway -d pathway_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
+      DJANGO_SECRET_KEY: ci-secret-key
+      DJANGO_DEBUG: 'False'
+      POSTGRES_DB: pathway_test
+      POSTGRES_USER: pathway
+      POSTGRES_PASSWORD: pathway
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
       REDIS_URL: redis://localhost:6379/0
       CELERY_TASK_ALWAYS_EAGER: 'True'
     steps:
@@ -24,8 +49,21 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install backend deps
         run: pip install -r backend/requirements.txt
+      - name: Run migrations
+        run: |
+         cd backend
+         python manage.py migrate
+
       - name: Run pytest with coverage
-        run: pytest
+        run: pytest tests/ -v --cov=backend/core --cov-fail-under=70
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [backend, flutter, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy
+        run: echo "Deploy is unblocked because tests, Flutter checks, and Docker build passed."
 
   flutter:
     runs-on: ubuntu-latest
@@ -46,4 +84,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build backend Docker image
-        run: docker build backend
+        run: docker build -t backend ./backend
