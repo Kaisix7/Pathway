@@ -2,6 +2,9 @@ import json
 import logging
 import random
 from datetime import timedelta
+import requests
+from django.http import JsonResponse
+from django.conf import settings
 
 from django.db import connection
 from django.conf import settings
@@ -22,7 +25,7 @@ from .security import (
     verify_password,
 )
 from .tasks import send_welcome_event
-
+from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -339,34 +342,60 @@ def google_oauth_login(request):
         'access_type': 'offline',
         'prompt': 'select_account',
     }
-    query = '&'.join(f'{key}={value}' for key, value in params.items())
+    query = urlencode(params)
+    print("REDIRECT URL:", f'https://accounts.google.com/o/oauth2/v2/auth?{query}')
     return redirect(f'https://accounts.google.com/o/oauth2/v2/auth?{query}')
 
 
 @csrf_exempt
 def google_oauth_callback(request):
-    email = request.GET.get('email', '').strip()
-    name = request.GET.get('name', '').strip() or email.split('@')[0]
-    google_id = request.GET.get('google_id', '').strip()
+    code = request.GET.get('code')
+
+    if not code:
+        return JsonResponse({'error': 'code is required'}, status=400)
+
+    token_response = requests.post(
+        'https://oauth2.googleapis.com/token',
+        data={
+            'code': code,
+            'client_id': settings.GOOGLE_CLIENT_ID,
+            'client_secret': settings.GOOGLE_CLIENT_SECRET,
+            'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
+            'grant_type': 'authorization_code',
+        }
+    )
+
+    token_json = token_response.json()
+    access_token = token_json.get('access_token')
+
+    if not access_token:
+        return JsonResponse({'error': 'failed to get access token'}, status=400)
+
+    user_response = requests.get(
+        'https://www.googleapis.com/oauth2/v1/userinfo',
+        params={'access_token': access_token}
+    )
+
+    user_data = user_response.json()
+
+    email = user_data.get('email')
+    name = user_data.get('name')
 
     if not email:
-        return JsonResponse({'error': 'google callback email is required'}, status=400)
+        return JsonResponse({'error': 'email not provided'}, status=400)
+
+    from core.models import AppUser
 
     user, _ = AppUser.objects.get_or_create(
         email=email,
-        defaults={'name': name, 'google_id': google_id},
+        defaults={'name': name}
     )
-    updates = []
-    if google_id and user.google_id != google_id:
-        user.google_id = google_id
-        updates.append('google_id')
-    if name and user.name != name:
-        user.name = name
-        updates.append('name')
-    if updates:
-        user.save(update_fields=updates)
 
-    return JsonResponse({'status': 'ok', 'token': create_token(user), 'user': _user_payload(user)})
+    return JsonResponse({
+        'message': 'login success',
+        'email': email,
+        'name': name
+    })
 
 
 def profile(request):

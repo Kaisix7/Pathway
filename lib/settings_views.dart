@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -23,26 +24,45 @@ class _SettingsViewState extends State<SettingsView> {
     'it': 'Italian',
   };
 
+  void loginWithGoogle() async {
+    final url = Uri.parse('http://127.0.0.1:8000/api/oauth/google/');
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Settings")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: DropdownButton<String>(
-          value: selectedLanguage,
-          isExpanded: true,
-          items: languages.entries.map((entry) {
-            return DropdownMenuItem(
-              value: entry.key,
-              child: Text(entry.value),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              selectedLanguage = value!;
-            });
-          },
+        child: Column(
+          children: [
+            DropdownButton<String>(
+              value: selectedLanguage,
+              isExpanded: true,
+              items: languages.entries.map((entry) {
+                return DropdownMenuItem(
+                  value: entry.key,
+                  child: Text(entry.value),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedLanguage = value!;
+                });
+              },
+            ),
+
+            const SizedBox(height: 30),
+
+            ElevatedButton(
+              onPressed: loginWithGoogle,
+              child: const Text("Login with Google"),
+            ),
+          ],
         ),
       ),
     );

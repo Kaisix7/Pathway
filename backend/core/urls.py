@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import (
     admin_users,
     google_oauth_callback,
@@ -35,6 +35,7 @@ urlpatterns = [
     path('docs/redoc/', redoc_ui),
     path('2fa/request/', request_2fa),
     path('2fa/verify/', verify_2fa),
-    path('oauth/google/login/', google_oauth_login),
+    path('auth/', include('social_django.urls', namespace='social')),
+    path('oauth/google/', google_oauth_login),
     path('oauth/google/callback/', google_oauth_callback),
 ]
