@@ -55,8 +55,6 @@ jobs:
          python manage.py migrate
 
       - name: Run pytest with coverage
-        run: |
-         - name: Run pytest with coverage
         run: pytest tests/ -v --cov=backend/core --cov-fail-under=70
 
   deploy:
