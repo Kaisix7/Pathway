@@ -8,3 +8,4 @@ redis==6.4.0
 pytest==8.4.2
 pytest-cov==7.0.0
 pytest-django==4.11.1
+social-auth-app-django==5.4.0
