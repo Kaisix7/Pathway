@@ -349,11 +349,33 @@ def google_oauth_login(request):
 
 @csrf_exempt
 def google_oauth_callback(request):
+
+    email = request.GET.get('email') or request.POST.get('email')
+    name = request.GET.get('name') or request.POST.get('name')
+
+    if email:
+        from core.models import AppUser
+        from core.security import create_token
+
+
+        user, _ = AppUser.objects.get_or_create(
+            email=email,
+            defaults={'name': name}
+        )
+
+        token = create_token(user)
+
+        return JsonResponse({
+            'message': 'login success',
+            'email': email,
+            'name': name,
+            'token': token
+        }, status=200)
+
     code = request.GET.get('code')
 
     if not code:
         return JsonResponse({'error': 'code is required'}, status=400)
-
     token_response = requests.post(
         'https://oauth2.googleapis.com/token',
         data={
@@ -377,7 +399,6 @@ def google_oauth_callback(request):
     )
 
     user_data = user_response.json()
-
     email = user_data.get('email')
     name = user_data.get('name')
 
@@ -395,8 +416,7 @@ def google_oauth_callback(request):
         'message': 'login success',
         'email': email,
         'name': name
-    })
-
+    }, status=200)
 
 def profile(request):
     if request.method != 'GET':
