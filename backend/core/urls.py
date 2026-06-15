@@ -38,4 +38,5 @@ urlpatterns = [
     path('auth/', include('social_django.urls', namespace='social')),
     path('oauth/google/', google_oauth_login),
     path('oauth/google/callback/', google_oauth_callback),
+    path('success', views.success_page),
 ]

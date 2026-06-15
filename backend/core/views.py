@@ -5,6 +5,7 @@ from datetime import timedelta
 import requests
 from django.http import JsonResponse
 from django.conf import settings
+from django.http import HttpResponse
 
 from django.db import connection
 from django.conf import settings
@@ -348,16 +349,17 @@ def google_oauth_login(request):
 
 
 @csrf_exempt
+@csrf_exempt
 def google_oauth_callback(request):
+
+    from core.models import AppUser
+    from core.security import create_token
+    from django.shortcuts import redirect
 
     email = request.GET.get('email') or request.POST.get('email')
     name = request.GET.get('name') or request.POST.get('name')
 
     if email:
-        from core.models import AppUser
-        from core.security import create_token
-
-
         user, _ = AppUser.objects.get_or_create(
             email=email,
             defaults={'name': name}
@@ -365,17 +367,13 @@ def google_oauth_callback(request):
 
         token = create_token(user)
 
-        return JsonResponse({
-            'message': 'login success',
-            'email': email,
-            'name': name,
-            'token': token
-        }, status=200)
+        return redirect(f"https://pathway-00.onrender.com/success?token={token}")
 
     code = request.GET.get('code')
 
     if not code:
         return JsonResponse({'error': 'code is required'}, status=400)
+
     token_response = requests.post(
         'https://oauth2.googleapis.com/token',
         data={
@@ -719,3 +717,17 @@ def register(request):
         })
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+def success_page(request):
+    return HttpResponse("""
+        <html>
+            <body>
+                <h2>Login successful</h2>
+                <script>
+                    const url = new URL(window.location.href);
+                    const token = url.searchParams.get("token");
+                    console.log("TOKEN:", token);
+                </script>
+            </body>
+        </html>
+    """)
