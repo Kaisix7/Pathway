@@ -349,10 +349,28 @@ def google_oauth_login(request):
 
 @csrf_exempt
 def google_oauth_callback(request):
+    
+    email = request.GET.get('email') or request.POST.get('email')
+    name = request.GET.get('name') or request.POST.get('name')
+
+    if email:
+        from core.models import AppUser
+
+        user, _ = AppUser.objects.get_or_create(
+            email=email,
+            defaults={'name': name}
+        )
+
+        return JsonResponse({
+            'message': 'login success',
+            'email': email,
+            'name': name
+        }, status=200)
+
     code = request.GET.get('code')
 
     if not code:
-        return JsonResponse({'error': 'code is required'}, status=400)
+     return JsonResponse({'error': 'code is required'}, status=400)
 
     token_response = requests.post(
         'https://oauth2.googleapis.com/token',
@@ -376,24 +394,12 @@ def google_oauth_callback(request):
         params={'access_token': access_token}
     )
 
-    email = request.GET.get('email') or request.POST.get('email')
-    name = request.GET.get('name') or request.POST.get('name')
+    user_data = user_response.json()
+    email = user_data.get('email')
+    name = user_data.get('name')
 
     if not email:
         return JsonResponse({'error': 'email not provided'}, status=400)
-
-    from core.models import AppUser
-
-    user, _ = AppUser.objects.get_or_create(
-        email=email,
-        defaults={'name': name}
-)
-
-    return JsonResponse({
-        'message': 'login success',
-        'email': email,
-        'name': name
-}, status=200)
 
     from core.models import AppUser
 
@@ -406,8 +412,7 @@ def google_oauth_callback(request):
         'message': 'login success',
         'email': email,
         'name': name
-    })
-
+    }, status=200)
 
 def profile(request):
     if request.method != 'GET':
