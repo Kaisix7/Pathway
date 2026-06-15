@@ -354,18 +354,22 @@ def google_oauth_callback(request):
     name = request.GET.get('name') or request.POST.get('name')
 
     if email:
-        from core.models import AppUser
+     from core.models import AppUser
+     from core.security import create_jwt_token
 
-        user, _ = AppUser.objects.get_or_create(
-            email=email,
-            defaults={'name': name}
-        )
+    user, _ = AppUser.objects.get_or_create(
+        email=email,
+        defaults={'name': name}
+    )
 
-        return JsonResponse({
-            'message': 'login success',
-            'email': email,
-            'name': name
-        }, status=200)
+    token = create_jwt_token(user)
+
+    return JsonResponse({
+        'message': 'login success',
+        'email': email,
+        'name': name,
+        'token': token
+    }, status=200)
 
     code = request.GET.get('code')
 
