@@ -376,8 +376,8 @@ def google_oauth_callback(request):
         params={'access_token': access_token}
     )
 
-    email = request.GET.get('email')
-    name = request.GET.get('name')
+    email = request.GET.get('email') or request.POST.get('email')
+    name = request.GET.get('name') or request.POST.get('name')
 
     if not email:
         return JsonResponse({'error': 'email not provided'}, status=400)
