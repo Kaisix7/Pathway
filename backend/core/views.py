@@ -349,7 +349,6 @@ def google_oauth_login(request):
 
 
 @csrf_exempt
-@csrf_exempt
 def google_oauth_callback(request):
 
     from core.models import AppUser
@@ -366,6 +365,14 @@ def google_oauth_callback(request):
         )
 
         token = create_token(user)
+
+        if request.GET.get('email'):
+            return JsonResponse({
+                'message': 'login success',
+                'email': email,
+                'name': name,
+                'token': token
+            }, status=200)
 
         return redirect(f"https://pathway-00.onrender.com/success?token={token}")
 
