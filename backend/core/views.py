@@ -376,13 +376,24 @@ def google_oauth_callback(request):
         params={'access_token': access_token}
     )
 
-    user_data = user_response.json()
-
-    email = user_data.get('email')
-    name = user_data.get('name')
+    email = request.GET.get('email')
+    name = request.GET.get('name')
 
     if not email:
         return JsonResponse({'error': 'email not provided'}, status=400)
+
+    from core.models import AppUser
+
+    user, _ = AppUser.objects.get_or_create(
+        email=email,
+        defaults={'name': name}
+)
+
+    return JsonResponse({
+        'message': 'login success',
+        'email': email,
+        'name': name
+}, status=200)
 
     from core.models import AppUser
 
