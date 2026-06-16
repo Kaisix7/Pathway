@@ -375,6 +375,14 @@ def google_oauth_callback(request):
   
          from django.shortcuts import redirect
 
+        # если это тест или обычный запрос → вернуть JSON
+     if request.GET.get('email'):
+       return JsonResponse({
+        'token': token,
+        'email': email,
+        'name': name
+    }, status=200)
+
         return redirect(f"myapp://callback?token={token}")
 
         return redirect(f"https://pathway-00.onrender.com/success?token={token}")
