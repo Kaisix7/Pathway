@@ -7,14 +7,12 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.http import HttpResponse
 import uuid
-import requests
 from django.conf import settings
 from django.shortcuts import redirect
 from .models import Order
 import stripe
 
 from django.db import connection
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -371,10 +369,6 @@ def google_oauth_callback(request):
         )
 
         token = create_token(user)
-
-        if request.GET.get('email'):
-  
-         from django.shortcuts import redirect
 
         if request.GET.get('email'):
          return JsonResponse({
