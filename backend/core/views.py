@@ -747,29 +747,7 @@ def success_page(request):
             </body>
         </html>
     """)
+from django.http import HttpResponse
+
 def checkout(request):
-    # создаем заказ
-    order_id = str(uuid.uuid4())
-
-    Order.objects.create(
-        order_id=order_id,
-        amount=1000,
-        status='created'
-    )
-
-    response = requests.post(
-        "https://3dsec.berekebank.kz/payment/rest/register.do",
-        data={
-            "userName": settings.BEREKE_USERNAME,
-            "password": settings.BEREKE_PASSWORD,
-            "orderNumber": order_id,
-            "amount": 1000 * 100,
-            "currency": 398,
-            "returnUrl": "https://pathway-00.onrender.com/payment/success",
-            "failUrl": "https://pathway-00.onrender.com/payment/fail",
-        }
-    )
-
-    data = response.json()
-
-    return redirect(data["formUrl"])
+    return HttpResponse("OK CHECKOUT")
