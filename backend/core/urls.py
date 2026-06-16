@@ -1,4 +1,5 @@
 from django.urls import path, include
+from core.views import frontend
 from . import views
 from .views import (
     admin_users,
@@ -21,6 +22,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('', frontend),
     path('health/', health),
     path('orders/', orders),
     path('orders/<int:order_id>/pay/', pay_order),

@@ -774,3 +774,8 @@ def checkout(request):
     return redirect(session.url)
 def stripe_cancel(request):
     return JsonResponse({'status': 'cancelled'})
+
+from django.shortcuts import render
+
+def frontend(request):
+    return render(request, "index.html")
