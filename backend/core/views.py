@@ -7,10 +7,8 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.http import HttpResponse
 import uuid
-from django.conf import settings
 from django.shortcuts import redirect
 from .models import Order
-import stripe
 
 from django.db import connection
 from django.http import HttpResponse, JsonResponse
@@ -744,8 +742,34 @@ def success_page(request):
     """)
 
 def checkout(request):
+    import stripe
     from django.http import HttpResponse
-    return HttpResponse("CHECKOUT ENTERED")
+
+    if not settings.STRIPE_SECRET_KEY:
+        return HttpResponse("NO STRIPE KEY")
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {'name': 'Test Product'},
+                    'unit_amount': 1000,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url='https://pathway-00.onrender.com/api/stripe/success/',
+            cancel_url='https://pathway-00.onrender.com/api/stripe/cancel/',
+        )
+
+        return redirect(session.url)
+
+    except Exception as e:
+        return HttpResponse(f"STRIPE ERROR: {str(e)}")
 
     return redirect(session.url)
 def stripe_cancel(request):
