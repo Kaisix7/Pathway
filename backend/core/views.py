@@ -742,9 +742,6 @@ def success_page(request):
             </body>
         </html>
     """)
-def stripe_success(request):
-    return JsonResponse({'status': 'paid'})
-from django.http import HttpResponse
 
 def checkout(request):
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -767,3 +764,5 @@ def checkout(request):
     )
 
     return redirect(session.url)
+def stripe_cancel(request):
+    return JsonResponse({'status': 'cancelled'})
