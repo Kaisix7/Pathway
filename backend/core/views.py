@@ -742,7 +742,11 @@ def success_page(request):
             </body>
         </html>
     """)
-def stripe_checkout(request):
+def stripe_success(request):
+    return JsonResponse({'status': 'paid'})
+from django.http import HttpResponse
+
+def checkout(request):
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
     session = stripe.checkout.Session.create(
@@ -753,7 +757,7 @@ def stripe_checkout(request):
                 'product_data': {
                     'name': 'Test Product',
                 },
-                'unit_amount': 1000,  # $10.00
+                'unit_amount': 1000,
             },
             'quantity': 1,
         }],
@@ -763,9 +767,3 @@ def stripe_checkout(request):
     )
 
     return redirect(session.url)
-def stripe_success(request):
-    return JsonResponse({'status': 'paid'})
-from django.http import HttpResponse
-
-def checkout(request):
-    return HttpResponse("CHECKOUT WORKS")
