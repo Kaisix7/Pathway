@@ -771,3 +771,7 @@ def stripe_checkout(request):
     return redirect(session.url)
 def stripe_success(request):
     return JsonResponse({'status': 'paid'})
+from django.http import HttpResponse
+
+def checkout(request):
+    return HttpResponse("CHECKOUT WORKS")
