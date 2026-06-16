@@ -6,6 +6,11 @@ import requests
 from django.http import JsonResponse
 from django.conf import settings
 from django.http import HttpResponse
+import uuid
+import requests
+from django.conf import settings
+from django.shortcuts import redirect
+from .models import Order
 
 from django.db import connection
 from django.conf import settings
@@ -367,12 +372,10 @@ def google_oauth_callback(request):
         token = create_token(user)
 
         if request.GET.get('email'):
-            return JsonResponse({
-                'message': 'login success',
-                'email': email,
-                'name': name,
-                'token': token
-            }, status=200)
+  
+         from django.shortcuts import redirect
+
+        return redirect(f"myapp://callback?token={token}")
 
         return redirect(f"https://pathway-00.onrender.com/success?token={token}")
 
@@ -738,3 +741,29 @@ def success_page(request):
             </body>
         </html>
     """)
+def checkout(request):
+    # создаем заказ
+    order_id = str(uuid.uuid4())
+
+    Order.objects.create(
+        order_id=order_id,
+        amount=1000,
+        status='created'
+    )
+
+    response = requests.post(
+        "https://3dsec.berekebank.kz/payment/rest/register.do",
+        data={
+            "userName": settings.BEREKE_USERNAME,
+            "password": settings.BEREKE_PASSWORD,
+            "orderNumber": order_id,
+            "amount": 1000 * 100,
+            "currency": 398,
+            "returnUrl": "https://pathway-00.onrender.com/payment/success",
+            "failUrl": "https://pathway-00.onrender.com/payment/fail",
+        }
+    )
+
+    data = response.json()
+
+    return redirect(data["formUrl"])

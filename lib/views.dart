@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:convert';
+import 'dart:html' as html;
+import 'package:uni_links/uni_links.dart';
+import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
 import 'analytics.dart';
@@ -24,6 +27,24 @@ class AuthView extends StatefulWidget {
 }
 
 class _AuthViewState extends State<AuthView> {
+   @override
+  void initState() {
+    super.initState();
+
+   if (!kIsWeb) {
+    uriLinkStream.listen((Uri? uri) {
+      if (uri != null && uri.queryParameters['token'] != null) {
+        final token = uri.queryParameters['token'];
+
+        print("TOKEN: $token");
+
+        setState(() {
+   });
+      }
+    });
+   }
+    fNationality.text = 'USA';
+  }
   UserRole role = UserRole.foreigner;
   String selectedCountryCode = 'US';
   bool isAccepted = false;
@@ -39,11 +60,10 @@ class _AuthViewState extends State<AuthView> {
   final wRole = TextEditingController(text: 'Coordinator');
 
   @override
-  void initState() {
-    super.initState();
-    fNationality.text = 'USA';
-  }
-  
+  void loginWithGoogle() {
+  final url = "https://pathway-00.onrender.com/api/oauth/google/";
+  html.window.location.href = url;
+}
   bool isValidEmail(String email) {
     return email.contains('@') && email.contains('.');
   }
@@ -479,7 +499,20 @@ class _AuthViewState extends State<AuthView> {
   onPressed: () {
     _snack(context, 'Password reset link sent (demo)');
   },
-  child: const Text("Forgot password?"),
+ child: const Text("Forgot password?"),
+),
+
+const SizedBox(height: 10),
+
+  SizedBox(
+   width: double.infinity,
+   height: 50,
+   child: ElevatedButton(
+      onPressed: () {
+       loginWithGoogle();
+    }, 
+    child: const Text("Login with Google"),
+  ),
 ),
     ];
   }
