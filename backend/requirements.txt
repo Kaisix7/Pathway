@@ -11,3 +11,4 @@ pytest-django==4.11.1
 social-auth-app-django==5.4.0
 django-redis==5.4.0
 stripe==15.2.1
+whitenoise
