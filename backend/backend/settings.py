@@ -214,3 +214,6 @@ SECURE_REDIRECT_EXEMPT = ['^myapp://']
 import os
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STATIC_ROOT = BASE_DIR / "staticfiles"
+DEBUG = False
+ALLOWED_HOSTS = ['*']
