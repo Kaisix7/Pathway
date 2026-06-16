@@ -211,3 +211,6 @@ X_FRAME_OPTIONS = 'DENY'
 
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_REDIRECT_EXEMPT = ['^myapp://']
+import os
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")

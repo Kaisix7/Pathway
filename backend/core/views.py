@@ -11,6 +11,7 @@ import requests
 from django.conf import settings
 from django.shortcuts import redirect
 from .models import Order
+import stripe
 
 from django.db import connection
 from django.conf import settings
@@ -747,7 +748,26 @@ def success_page(request):
             </body>
         </html>
     """)
-from django.http import HttpResponse
+def stripe_checkout(request):
+    stripe.api_key = settings.STRIPE_SECRET_KEY
 
-def checkout(request):
-    return HttpResponse("OK CHECKOUT")
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': 'Test Product',
+                },
+                'unit_amount': 1000,  # $10.00
+            },
+            'quantity': 1,
+        }],
+        mode='payment',
+        success_url='https://pathway-00.onrender.com/api/stripe/success/',
+        cancel_url='https://pathway-00.onrender.com/api/stripe/cancel/',
+    )
+
+    return redirect(session.url)
+def stripe_success(request):
+    return JsonResponse({'status': 'paid'})
