@@ -41,4 +41,5 @@ urlpatterns = [
     path('oauth/google/callback/', google_oauth_callback),
     path('success', views.success_page),
     path('checkout/', views.checkout),
+    path('stripe/cancel/', views.stripe_cancel),
 ]
