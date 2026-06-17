@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:ui';
+import 'package:google_fonts/google_fonts.dart';
 import 'l10n/app_localizations.dart';
-
 
 import 'analytics.dart';
 import 'firebase_options.dart';
@@ -48,11 +48,60 @@ class _PathwayAppState extends State<PathwayApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'PATHWAY',
-
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: app.locale,
-
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF6366F1), // Indigo
+              secondary: Color(0xFF00BFA6), // Teal
+              surface: Color(0xFF1E293B), // Slate 800
+              onPrimary: Colors.white,
+              onSecondary: Colors.black,
+            ),
+            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+              headlineMedium: GoogleFonts.outfit(
+                textStyle: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
+              ),
+              titleLarge: GoogleFonts.outfit(
+                textStyle: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+              ),
+            ),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF0F172A),
+              elevation: 0,
+              centerTitle: false,
+              titleTextStyle: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+            cardTheme: CardTheme(
+              color: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 4,
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFF1E293B),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+              ),
+              labelStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.w600),
+            ),
+          ),
           home: app.authed ? Shell(app: app) : AuthView(app: app),
         );
       },

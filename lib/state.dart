@@ -11,10 +11,9 @@ class AppState extends ChangeNotifier {
   Locale locale = const Locale('en');
 
   void changeLanguage(String code) {
-  locale = Locale(code);
-  notifyListeners();
-}
-
+    locale = Locale(code);
+    notifyListeners();
+  }
 
   UserRole role = UserRole.foreigner;
   Plan plan = Plan.free;
@@ -31,23 +30,25 @@ class AppState extends ChangeNotifier {
   String workerRole = 'Coordinator';
   String savedEmail = '';
 
+  /// JWT auth token from backend (OAuth or login)
+  String? authToken;
+
   DateTime? visaExpiry;
 
-
   final List<TaskItem> tasks = [
-  TaskItem(title: 'Get IIN'),
-  TaskItem(title: 'Open bank account'),
-  TaskItem(title: 'Register address'),
-  TaskItem(title: 'Buy SIM card'),
-  TaskItem(title: 'Medical insurance'),
-  TaskItem(title: 'University documents'),
-];
-int get roadmapDone => tasks.where((t) => t.done).length;
+    TaskItem(title: 'Get IIN'),
+    TaskItem(title: 'Open bank account'),
+    TaskItem(title: 'Register address'),
+    TaskItem(title: 'Buy SIM card'),
+    TaskItem(title: 'Medical insurance'),
+    TaskItem(title: 'University documents'),
+  ];
+  int get roadmapDone => tasks.where((t) => t.done).length;
 
-int get roadmapTotal => tasks.length;
+  int get roadmapTotal => tasks.length;
 
-double get progress =>
-    roadmapTotal == 0 ? 0 : roadmapDone / roadmapTotal;
+  double get progress =>
+      roadmapTotal == 0 ? 0 : roadmapDone / roadmapTotal;
 
   final Set<String> favoritesHousing = {};
 
@@ -58,7 +59,7 @@ double get progress =>
     ChatMsg(
       fromUser: false,
       text:
-          'Hi! I’m Pathway Assistant. Ask me about IIN, visa deadlines, housing, or EDS.',
+          "Hi! I'm Pathway Assistant. Ask me about IIN, visa deadlines, housing, or EDS.",
       ts: DateTime.now(),
     ),
   ];
@@ -66,6 +67,51 @@ double get progress =>
   bool isChatLoading = false;
 
   final gemini = GeminiService();
+
+  // ── OAuth Login ──────────────────────────────────────────────────────
+
+  /// Login with OAuth token received from Google callback
+  Future<void> loginWithOAuthToken({
+    required String token,
+    required String email,
+    String name = '',
+  }) async {
+    authToken = token;
+    savedEmail = email;
+    role = UserRole.foreigner;
+
+    // Parse first/last name from full name
+    final parts = name.trim().split(' ');
+    firstName = parts.isNotEmpty ? parts.first : '';
+    lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    contact = email;
+    nationality = '';
+    nationalityCode = 'US';
+
+    try {
+      await FirebaseFirestore.instance.collection('users').add({
+        'role': 'foreigner',
+        'firstName': firstName,
+        'lastName': lastName,
+        'contact': contact,
+        'source': 'google_oauth',
+        'createdAt': DateTime.now(),
+      });
+    } catch (e) {
+      print('FIREBASE ERROR: $e');
+    }
+
+    await Analytics.trackLogin(email, source: 'google');
+    await Analytics.identify(email, properties: {
+      'name': name,
+      'source': 'google_oauth',
+    });
+
+    authed = true;
+    notifyListeners();
+  }
+
+  // ── Foreigner Login ─────────────────────────────────────────────────
 
   Future<void> loginForeigner({
     required String firstName,
@@ -99,13 +145,10 @@ double get progress =>
       print(e);
     }
 
-    await Analytics.track(
-      'registration',
-      userEmail: this.contact,
-      properties: {
-        'role': 'foreigner',
-        'nationality': this.nationality,
-      },
+    await Analytics.trackSignUp(
+      this.contact,
+      name: '${this.firstName} ${this.lastName}',
+      nationality: this.nationality,
     );
     await Analytics.track(
       'app_open',
@@ -130,6 +173,7 @@ double get progress =>
     workerCity = city.trim().isEmpty ? 'Almaty' : city.trim();
     workerRole = roleName.trim().isEmpty ? 'Coordinator' : roleName.trim();
 
+    Analytics.trackLogin(workerContact, source: 'worker');
     Analytics.track(
       'app_open',
       userEmail: workerContact,
@@ -145,6 +189,7 @@ double get progress =>
     authed = false;
     role = UserRole.foreigner;
     plan = Plan.free;
+    authToken = null;
     
     // Clear foreigner data
     firstName = '';
@@ -201,6 +246,7 @@ double get progress =>
           title: 'Subscription: ${planLabel(p)}',
           amount: p == Plan.standard ? 7.99 : 24.99,
           date: DateTime.now(),
+          status: PaymentStatus.completed,
         ),
       );
     }
@@ -219,9 +265,10 @@ double get progress =>
   }
 
   void toggleTask(int index) {
-  tasks[index].done = !tasks[index].done;
-  notifyListeners();
-}
+    tasks[index].done = !tasks[index].done;
+    notifyListeners();
+  }
+
   void addOrder(AppOrder o) {
     orders.insert(0, o);
     final email = contact.isNotEmpty ? contact : workerContact;
@@ -265,26 +312,26 @@ double get progress =>
 
   Future<void> sendChat(String text) async {
 
-  final t = text.trim();
-  if (t.isEmpty) return;
+    final t = text.trim();
+    if (t.isEmpty) return;
 
-  chat.add(ChatMsg(fromUser: true, text: t, ts: DateTime.now()));
-  isChatLoading = true;
-  notifyListeners();
+    chat.add(ChatMsg(fromUser: true, text: t, ts: DateTime.now()));
+    isChatLoading = true;
+    notifyListeners();
 
-  final reply = await gemini.ask(t);
+    final reply = await gemini.ask(t);
 
-  chat.add(
-    ChatMsg(
-      fromUser: false,
-      text: reply,
-      ts: DateTime.now(),
-    ),
-  );
+    chat.add(
+      ChatMsg(
+        fromUser: false,
+        text: reply,
+        ts: DateTime.now(),
+      ),
+    );
 
-  isChatLoading = false;
-  notifyListeners();
-}
+    isChatLoading = false;
+    notifyListeners();
+  }
 
   String _assistantReply(String q) {
     final s = q.toLowerCase();

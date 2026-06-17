@@ -20,6 +20,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
   String? _errorMessage;
   String? _successMessage;
   String? _launchedUrl;
+  String? _sessionId;
   bool _isVerifying = false;
 
   late AnimationController _animController;
@@ -50,15 +51,19 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
       _errorMessage = null;
       _successMessage = null;
       _launchedUrl = null;
+      _sessionId = null;
     });
 
     try {
-      // Fetch session from backend
-      final stripeResponse = await PaymentService.createCheckoutSession();
+      // Fetch session from backend with user's email
+      final stripeResponse = await PaymentService.createCheckoutSession(
+        userEmail: widget.app.savedEmail,
+      );
 
       if (stripeResponse.isRedirect && stripeResponse.url != null) {
         final uri = Uri.parse(stripeResponse.url!);
         _launchedUrl = stripeResponse.url;
+        _sessionId = stripeResponse.sessionId;
 
         // Launch external browser/application for Stripe Redirect Checkout
         final launched = await launchUrl(
@@ -75,6 +80,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
           _isLoading = false;
         });
       } else if (stripeResponse.clientSecret != null) {
+        _sessionId = stripeResponse.sessionId;
         // Handle Stripe SDK client_secret payment sheet flow
         setState(() {
           _isLoading = false;
@@ -123,15 +129,21 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
       _isVerifying = true;
     });
 
-    // Simulate backend payment verification API call
-    await Future.delayed(const Duration(seconds: 2));
+    final verification = await PaymentService.verifyPayment(_sessionId);
 
     if (mounted) {
       setState(() {
         _isVerifying = false;
       });
-      // We assume user succeeded in paying
-      _handlePaymentSuccess('Redirect Checkout Successful');
+      if (verification.isPaid) {
+        _handlePaymentSuccess('Redirect Checkout Successful');
+      } else {
+        setState(() {
+          _errorMessage = verification.error ?? 'Payment verification failed. Please try again.';
+        });
+        _animController.reset();
+        _animController.forward();
+      }
     }
   }
 

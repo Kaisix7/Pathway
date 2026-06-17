@@ -26,17 +26,47 @@ Color planColor(Plan p) {
   }
 }
 
+enum PaymentStatus { created, pending, paid, completed }
+
+String paymentStatusLabel(PaymentStatus s) {
+  switch (s) {
+    case PaymentStatus.created:
+      return 'Created';
+    case PaymentStatus.pending:
+      return 'Pending';
+    case PaymentStatus.paid:
+      return 'Paid';
+    case PaymentStatus.completed:
+      return 'Completed';
+  }
+}
+
+Color paymentStatusColor(PaymentStatus s) {
+  switch (s) {
+    case PaymentStatus.created:
+      return Colors.grey;
+    case PaymentStatus.pending:
+      return Colors.orange;
+    case PaymentStatus.paid:
+      return Colors.blue;
+    case PaymentStatus.completed:
+      return Colors.green;
+  }
+}
+
 class PaymentRecord {
   final String id;
   final String title;
   final double amount;
   final DateTime date;
+  final PaymentStatus status;
 
   PaymentRecord({
     required this.id,
     required this.title,
     required this.amount,
     required this.date,
+    this.status = PaymentStatus.completed,
   });
 }
 

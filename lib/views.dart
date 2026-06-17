@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:convert';
-import 'dart:html' as html;
+import 'package:universal_html/html.dart' as html;
 import 'package:uni_links/uni_links.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
@@ -28,22 +29,51 @@ class AuthView extends StatefulWidget {
 }
 
 class _AuthViewState extends State<AuthView> {
-   @override
+  @override
   void initState() {
     super.initState();
 
-   if (!kIsWeb) {
-    uriLinkStream.listen((Uri? uri) {
-      if (uri != null && uri.queryParameters['token'] != null) {
+    if (kIsWeb) {
+      // Handle OAuth callback on web
+      try {
+        final uri = Uri.parse(html.window.location.href);
         final token = uri.queryParameters['token'];
-
-        print("TOKEN: $token");
-
-        setState(() {
-   });
+        final email = uri.queryParameters['email'];
+        final name = uri.queryParameters['name'] ?? '';
+        if (token != null && email != null) {
+          widget.app.loginWithOAuthToken(token: token, email: email, name: name);
+        }
+      } catch (e) {
+        print("Web deep link parsing error: $e");
       }
-    });
-   }
+    } else {
+      // Handle OAuth callback on mobile
+      try {
+        getInitialUri().then((uri) {
+          if (uri != null) {
+            final token = uri.queryParameters['token'];
+            final email = uri.queryParameters['email'];
+            final name = uri.queryParameters['name'] ?? '';
+            if (token != null && email != null) {
+              widget.app.loginWithOAuthToken(token: token, email: email, name: name);
+            }
+          }
+        });
+
+        uriLinkStream.listen((Uri? uri) {
+          if (uri != null) {
+            final token = uri.queryParameters['token'];
+            final email = uri.queryParameters['email'];
+            final name = uri.queryParameters['name'] ?? '';
+            if (token != null && email != null) {
+              widget.app.loginWithOAuthToken(token: token, email: email, name: name);
+            }
+          }
+        });
+      } catch (e) {
+        print("Mobile deep link parsing error: $e");
+      }
+    }
     fNationality.text = 'USA';
   }
   UserRole role = UserRole.foreigner;
@@ -60,11 +90,16 @@ class _AuthViewState extends State<AuthView> {
   final wCity = TextEditingController(text: 'Almaty');
   final wRole = TextEditingController(text: 'Coordinator');
 
-  @override
-  void loginWithGoogle() {
-  final url = "${ApiService.baseUrl}/oauth/google/";
-  html.window.location.href = url;
-}
+  Future<void> loginWithGoogle() async {
+    final url = Uri.parse("${ApiService.baseUrl}/oauth/google/");
+    final launched = await launchUrl(
+      url,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      _snack(context, 'Could not launch Google Login page.');
+    }
+  }
   bool isValidEmail(String email) {
     return email.contains('@') && email.contains('.');
   }
@@ -257,7 +292,7 @@ class _AuthViewState extends State<AuthView> {
     final grad = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF6D5BFF), Color(0xFF1DB7FF)],
+      colors: [Color(0xFF0F172A), Color(0xFF1E1B4B)],
     );
 
     return Scaffold(
@@ -268,85 +303,113 @@ class _AuthViewState extends State<AuthView> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                 child: Column(
                   children: [
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.16),
-                        borderRadius: BorderRadius.circular(18),
+                        color: const Color(0xFF6366F1).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2), width: 1.5),
                       ),
-                      child: const Icon(Icons.public, color: Colors.white, size: 28),
+                      child: const Icon(Icons.public, color: Color(0xFF00BFA6), size: 32),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     const Text(
                       'PATHWAY',
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Your guide in Kazakhstan',
-                      style: TextStyle(color: Colors.white.withOpacity(0.85), fontWeight: FontWeight.w600),
+                      'Your digital relocation guide in Kazakhstan',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 30),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(18),
+                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: Colors.white.withOpacity(0.18)),
+                          color: const Color(0xFF1E293B).withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(32),
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 30,
+                              offset: const Offset(0, 15),
+                            )
+                          ],
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(22),
-                          child: Container(
-                            color: Colors.white.withOpacity(0.55),
-                            padding: const EdgeInsets.all(18),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _roleSwitch(),
-                                const SizedBox(height: 18),
-                                Expanded(
-                                  child: ListView(
-                                    children: [
-                                      if (role == UserRole.foreigner) ..._foreignerForm(context),
-                                      if (role == UserRole.worker) ..._workerForm(context),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 54,
-                                  child: FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                    ),
-                                    onPressed: _handleStartPressed,
-                                    child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text('Start', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                                        SizedBox(width: 10),
-                                        Icon(Icons.arrow_forward_rounded),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _roleSwitch(),
+                            const SizedBox(height: 24),
+                            Expanded(
+                              child: ListView(
+                                children: [
+                                  if (role == UserRole.foreigner) ..._foreignerForm(context),
+                                  if (role == UserRole.worker) ..._workerForm(context),
+                                ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 58,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00BFA6),
+                                  foregroundColor: Colors.black,
+                                  shadowColor: const Color(0xFF00BFA6).withOpacity(0.3),
+                                  elevation: 8,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                onPressed: _handleStartPressed,
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Start Journey',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 16,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Icon(Icons.arrow_forward_rounded, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Text(
-                      'MVP build • Flutter',
-                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.w600),
+                      'Week 2 demo build • Flutter Web & Mobile',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.35),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -360,10 +423,11 @@ class _AuthViewState extends State<AuthView> {
 
   Widget _roleSwitch() {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.55),
+        color: const Color(0xFF0F172A).withOpacity(0.4),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Row(
         children: [
@@ -375,7 +439,7 @@ class _AuthViewState extends State<AuthView> {
               onTap: () => setState(() => role = UserRole.foreigner),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: _seg(
               active: role == UserRole.worker,
@@ -394,21 +458,31 @@ class _AuthViewState extends State<AuthView> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF2E7DFF) : Colors.transparent,
+          color: active ? const Color(0xFF6366F1) : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withOpacity(0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: active ? Colors.white : const Color(0xFF3C4457)),
+            Icon(icon, size: 18, color: active ? Colors.white : Colors.white54),
             const SizedBox(width: 8),
             Text(
               text,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
-                color: active ? Colors.white : const Color(0xFF3C4457),
+                fontSize: 14,
+                color: active ? Colors.white : Colors.white54,
               ),
             ),
           ],
@@ -420,48 +494,76 @@ class _AuthViewState extends State<AuthView> {
   List<Widget> _foreignerForm(BuildContext context) {
     return [
       _label('First name'),
-      TextField(controller: fName, textInputAction: TextInputAction.next),
-      const SizedBox(height: 12),
+      TextField(
+        controller: fName,
+        textInputAction: TextInputAction.next,
+        decoration: const InputDecoration(
+          hintText: 'Enter your first name',
+          prefixIcon: Icon(Icons.person_outline),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('Last name'),
-      TextField(controller: lName, textInputAction: TextInputAction.next),
-      const SizedBox(height: 12),
+      TextField(
+        controller: lName,
+        textInputAction: TextInputAction.next,
+        decoration: const InputDecoration(
+          hintText: 'Enter your last name',
+          prefixIcon: Icon(Icons.person_outline),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('Contact (phone/email)'),
-      TextField(controller: fContact, keyboardType: TextInputType.emailAddress),
-      const SizedBox(height: 12),
+      TextField(
+        controller: fContact,
+        keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(
+          hintText: 'email@example.com or +7...',
+          prefixIcon: Icon(Icons.email_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('Country'),
-      CountryListPick(
-        initialSelection: selectedCountryCode,
-        appBar: AppBar(title: const Text('Select country')),
-        theme: CountryTheme(
-          isShowFlag: true,
-          isShowTitle: true,
-          isShowCode: false,
-          isDownIcon: true,
-          showEnglishName: true,
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
         ),
-        onChanged: (code) {
-          setState(() {
-            selectedCountryCode = code?.code ?? 'US';
-            fNationality.text = code?.name ?? 'USA';
-          });
-        },
-      ),
-      const SizedBox(height: 8),
-      Text(
-        fNationality.text,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF4A556F),
+        child: Row(
+          children: [
+            const Icon(Icons.flag_outlined, color: Colors.white54),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CountryListPick(
+                initialSelection: selectedCountryCode,
+                appBar: AppBar(title: const Text('Select country')),
+                theme: CountryTheme(
+                  isShowFlag: true,
+                  isShowTitle: true,
+                  isShowCode: false,
+                  isDownIcon: true,
+                  showEnglishName: true,
+                ),
+                onChanged: (code) {
+                  setState(() {
+                    selectedCountryCode = code?.code ?? 'US';
+                    fNationality.text = code?.name ?? 'USA';
+                  });
+                },
+              ),
+            ),
+          ],
         ),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 16),
       CheckboxListTile(
         value: isAccepted,
         contentPadding: EdgeInsets.zero,
         controlAffinity: ListTileControlAffinity.leading,
         title: const Text(
-          'I agree to Terms and Privacy Policy',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          'I agree to Terms & Privacy Policy',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         onChanged: (value) {
           setState(() {
@@ -469,76 +571,109 @@ class _AuthViewState extends State<AuthView> {
           });
         },
       ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          children: [
-            TextButton(
-              onPressed: _showTermsDialog,
-              child: const Text('View Terms'),
-            ),
-            TextButton(
-              onPressed: _showPrivacyDialog,
-              child: const Text('View Privacy'),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 12),
-      _hintBox(
-        title: 'What you get in MVP',
-        lines: const [
-          'IIN queue booking (Almaty PSC list)',
-          'Housing with filters + favorites',
-          'Airport pickup order',
-          'Visa & Docs tracker + EDS checklist',
-          'AI assistant chat (MVP)',
+      Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          TextButton(
+            onPressed: _showTermsDialog,
+            child: const Text('View Terms', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+          ),
+          const Text('•', style: TextStyle(color: Colors.white24)),
+          TextButton(
+            onPressed: _showPrivacyDialog,
+            child: const Text('View Privacy', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
-      TextButton(
-  onPressed: () {
-    _snack(context, 'Password reset link sent (demo)');
-  },
- child: const Text("Forgot password?"),
-),
-
-const SizedBox(height: 10),
-
-  SizedBox(
-   width: double.infinity,
-   height: 50,
-   child: ElevatedButton(
-      onPressed: () {
-       loginWithGoogle();
-    }, 
-    child: const Text("Login with Google"),
-  ),
-),
+      const SizedBox(height: 16),
+      _hintBox(
+        title: 'What you get in PATHWAY',
+        lines: const [
+          'Priority IIN appointment booking helper',
+          'Verified housing database access',
+          'Secure Stripe-powered premium services',
+          'Visa & document requirements tracker',
+          'Immigration assistant powered by Gemini',
+        ],
+      ),
+      const SizedBox(height: 16),
+      SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: BorderSide(color: Colors.white.withOpacity(0.12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            backgroundColor: Colors.white.withOpacity(0.04),
+          ),
+          onPressed: () {
+            loginWithGoogle();
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.network(
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
+                height: 20,
+                errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Continue with Google',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.2),
+              ),
+            ],
+          ),
+        ),
+      ),
     ];
   }
 
   List<Widget> _workerForm(BuildContext context) {
     return [
       _label('IIN'),
-      TextField(controller: wIin, keyboardType: TextInputType.number),
-      const SizedBox(height: 12),
+      TextField(
+        controller: wIin,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          hintText: 'Enter 12-digit IIN',
+          prefixIcon: Icon(Icons.badge_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('Contact (phone/email)'),
-      TextField(controller: wContact),
-      const SizedBox(height: 12),
+      TextField(
+        controller: wContact,
+        decoration: const InputDecoration(
+          hintText: '+7... or email',
+          prefixIcon: Icon(Icons.phone_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('City'),
-      TextField(controller: wCity),
-      const SizedBox(height: 12),
+      TextField(
+        controller: wCity,
+        decoration: const InputDecoration(
+          prefixIcon: Icon(Icons.location_city_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('Role title'),
-      TextField(controller: wRole),
-      const SizedBox(height: 12),
+      TextField(
+        controller: wRole,
+        decoration: const InputDecoration(
+          prefixIcon: Icon(Icons.work_outline),
+        ),
+      ),
+      const SizedBox(height: 16),
       _hintBox(
-        title: 'Worker mode (MVP)',
+        title: 'Worker Portal (MVP)',
         lines: const [
-          'Manage foreigners (demo list)',
-          'Track visa/IIN status (demo)',
+          'Manage foreigner profiles',
+          'Track visa/IIN queue statuses',
           'Create service orders on behalf of clients',
-          'AI assistant helps answer FAQs',
+          'Smart relocation helper chat',
         ],
       ),
     ];
@@ -549,32 +684,43 @@ const SizedBox(height: 10),
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         t.toUpperCase(),
-        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.7, color: Color(0xFF4A556F), fontSize: 12),
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.0,
+          color: Color(0xFF94A3B8), // Slate 400
+          fontSize: 11,
+        ),
       ),
     );
   }
 
   Widget _hintBox({required String title, required List<String> lines}) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.35)),
+        color: const Color(0xFF0F172A).withOpacity(0.3),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF283046))),
-          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
+          const SizedBox(height: 10),
           for (final l in lines)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('•  ', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2E7DFF))),
-                  Expanded(child: Text(l, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3C4457)))),
+                  const Icon(Icons.check_circle_outline, size: 16, color: Color(0xFF00BFA6)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      l,
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white70, fontSize: 13),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -584,7 +730,14 @@ const SizedBox(height: 10),
   }
 
   void _snack(BuildContext context, String t) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(t, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E293B),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 }
 
@@ -608,6 +761,25 @@ class _ShellState extends State<Shell> {
       userEmail: email,
       properties: {'screen': 'shell'},
     );
+
+    if (kIsWeb) {
+      try {
+        final uri = Uri.parse(html.window.location.href);
+        if (uri.queryParameters['payment'] == 'success') {
+          widget.app.setPlan(Plan.premium);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Subscription payment successful! Welcome to Premium.'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          });
+        }
+      } catch (e) {
+        print("Web payment status check error: $e");
+      }
+    }
   }
 
   @override
@@ -619,33 +791,11 @@ class _ShellState extends State<Shell> {
       AssistantView(app: widget.app),
       AccountView(app: widget.app),
     ];
-  return Scaffold(
-    body: Column(
-  children: [
-
-  
-    DropdownButton<String>(
-      value: widget.app.locale.languageCode,
-      items: const [
-        DropdownMenuItem(value: 'en', child: Text('English')),
-        DropdownMenuItem(value: 'hi', child: Text('हिन्दी')),
-        DropdownMenuItem(value: 'fa', child: Text('دری')),
-        DropdownMenuItem(value: 'ar', child: Text('العربية')),
-      ],
-      onChanged: (value) {
-        widget.app.changeLanguage(value!);
-      },
-    ),
-
-    ///  ЭКРАН
-    Expanded(
-      child: pages[index],
-    ),
-  ],
-),
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: index,
-      onDestinationSelected: (i) => setState(() => index = i),
+    return Scaffold(
+      body: pages[index],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
+        onDestinationSelected: (i) => setState(() => index = i),
       destinations: const [
         NavigationDestination(
           icon: Icon(Icons.home_outlined),
@@ -681,7 +831,8 @@ class _ShellState extends State<Shell> {
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final Widget? trailing;
-  const TopBar({super.key, required this.title, this.trailing});
+  final AppState? app;
+  const TopBar({super.key, required this.title, this.trailing, this.app});
 
   @override
   Size get preferredSize => const Size.fromHeight(66);
@@ -716,6 +867,35 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
+        if (app != null)
+          PopupMenuButton<String>(
+            icon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.language_rounded, size: 16, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    app!.locale.languageCode.toUpperCase(),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            onSelected: (value) {
+              app!.changeLanguage(value);
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'en', child: Text('🇬🇧 English')),
+              PopupMenuItem(value: 'hi', child: Text('🇮🇳 हिन्दी')),
+              PopupMenuItem(value: 'fa', child: Text('🇮🇷 دری')),
+              PopupMenuItem(value: 'ar', child: Text('🇸🇦 العربية')),
+            ],
+          ),
         IconButton(onPressed: () {}, icon: const Icon(Icons.search_rounded)),
         Stack(
           children: [
@@ -745,6 +925,7 @@ class HomeView extends StatelessWidget {
     return Scaffold(
       appBar: TopBar(
         title: 'PATHWAY',
+        app: app,
         trailing: CircleAvatar(
           radius: 18,
           backgroundColor: const Color(0xFFDEF8F3),
@@ -761,6 +942,10 @@ class HomeView extends StatelessWidget {
         children: [
           _roadmapCard(hello: hello, progress: progress, done: app.roadmapDone, total: app.roadmapTotal),
           const SizedBox(height: 18),
+          if (app.plan == Plan.free && app.role == UserRole.foreigner) ...[
+            _premiumUpgradeBanner(context),
+            const SizedBox(height: 18),
+          ],
           Row(
             children: [
               const Text('Priority Tasks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
@@ -781,6 +966,100 @@ class HomeView extends StatelessWidget {
           const Text('Quick Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
           _quickServiceRow(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _premiumUpgradeBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6366F1), Color(0xFF4F46E5), Color(0xFF312E81)],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.3),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'LIMITED OFFER',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Unlock Premium Features',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Get unlimited AI answers, priority booking queue, and pre-verified dorms.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BFA6),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              elevation: 4,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => StripePaymentScreen(app: app)),
+              );
+            },
+            child: const Row(
+              children: [
+                Text(
+                  'Upgrade',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                ),
+                SizedBox(width: 4),
+                Icon(Icons.bolt, size: 16),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1078,7 +1357,7 @@ class ServicesView extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: const TopBar(title: 'PATHWAY'),
+      appBar: TopBar(title: 'PATHWAY', app: app),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
@@ -1188,7 +1467,7 @@ class _AssistantViewState extends State<AssistantView> {
     final isChatLoading = widget.app.isChatLoading;
 
     return Scaffold(
-      appBar: const TopBar(title: 'PATHWAY'),
+      appBar: TopBar(title: 'PATHWAY', app: widget.app),
       body: Column(
         children: [
           Expanded(
@@ -1323,7 +1602,7 @@ class AccountView extends StatelessWidget {
     final contact = app.role == UserRole.worker ? app.workerContact : app.contact;
 
     return Scaffold(
-      appBar: const TopBar(title: 'PATHWAY'),
+      appBar: TopBar(title: 'PATHWAY', app: app),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
