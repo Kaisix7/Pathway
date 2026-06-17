@@ -98,8 +98,11 @@ import uuid
 
 class Order(models.Model):
     order_id = models.CharField(max_length=100, unique=True)
+    user_email = models.EmailField(blank=True, default='')
     amount = models.IntegerField()
     status = models.CharField(max_length=20, default='created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.order_id
+        return f"Order {self.order_id} - {self.user_email} - {self.status}"

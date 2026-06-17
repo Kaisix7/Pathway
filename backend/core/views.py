@@ -358,7 +358,7 @@ def google_oauth_callback(request):
     from django.shortcuts import redirect
 
     email = request.GET.get('email') or request.POST.get('email')
-    name = request.GET.get('name') or request.POST.get('name')
+    name = request.GET.get('name') or request.POST.get('name') or ''
 
     if email:
         user, _ = AppUser.objects.get_or_create(
@@ -368,15 +368,14 @@ def google_oauth_callback(request):
 
         token = create_token(user)
 
-        if request.GET.get('email'):
-         return JsonResponse({
-        'token': token,
-        'email': email,
-        'name': name
-    }, status=200)
+        if request.GET.get('email') or request.POST.get('email'):
+            return JsonResponse({
+                'token': token,
+                'email': email,
+                'name': name,
+                'user': _user_payload(user)
+            }, status=200)
         return redirect(f"myapp://callback?token={token}")
-
-        return redirect(f"/success?token={token}")
 
     code = request.GET.get('code')
 
@@ -398,7 +397,7 @@ def google_oauth_callback(request):
     access_token = token_json.get('access_token')
 
     if not access_token:
-        return JsonResponse({'error': 'failed to get access token'}, status=400)
+        return JsonResponse({'error': 'failed to get access token', 'details': token_json}, status=400)
 
     user_response = requests.get(
         'https://www.googleapis.com/oauth2/v1/userinfo',
@@ -407,22 +406,23 @@ def google_oauth_callback(request):
 
     user_data = user_response.json()
     email = user_data.get('email')
-    name = user_data.get('name')
+    name = user_data.get('name') or ''
 
     if not email:
         return JsonResponse({'error': 'email not provided'}, status=400)
-
-    from core.models import AppUser
 
     user, _ = AppUser.objects.get_or_create(
         email=email,
         defaults={'name': name}
     )
 
+    token = create_token(user)
+
     return JsonResponse({
-        'message': 'login success',
+        'token': token,
         'email': email,
-        'name': name
+        'name': name,
+        'user': _user_payload(user)
     }, status=200)
 
 def profile(request):
@@ -741,6 +741,7 @@ def success_page(request):
         </html>
     """)
 
+@csrf_exempt
 def checkout(request):
     import stripe
 
@@ -748,10 +749,15 @@ def checkout(request):
         return JsonResponse({'error': 'NO STRIPE KEY'}, status=500)
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
+    user_email = request.GET.get('user_email') or request.POST.get('user_email') or ''
 
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
+            customer_email=user_email if user_email else None,
+            metadata={
+                'user_email': user_email,
+            },
             line_items=[{
                 'price_data': {
                     'currency': 'usd',
@@ -761,14 +767,122 @@ def checkout(request):
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=request.build_absolute_uri('/api/stripe/success/'),
+            success_url=request.build_absolute_uri('/api/stripe/success/') + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=request.build_absolute_uri('/api/stripe/cancel/'),
         )
 
-        return JsonResponse({'url': session.url})
+        # Record the order in our DB
+        Order.objects.create(
+            order_id=session.id,
+            user_email=user_email,
+            amount=2499,
+            status='created'
+        )
+
+        # Track event
+        AppEvent.objects.create(
+            event_name='checkout_started',
+            user_email=user_email,
+            properties={'session_id': session.id, 'amount': 2499}
+        )
+
+        return JsonResponse({'url': session.url, 'session_id': session.id})
 
     except Exception as e:
         return JsonResponse({'error': f'STRIPE ERROR: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+def stripe_success(request):
+    import stripe
+    session_id = request.GET.get('session_id')
+    if not session_id:
+        return HttpResponse("Missing session_id", status=400)
+
+    if not settings.STRIPE_SECRET_KEY:
+        return HttpResponse("Stripe not configured", status=500)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        user_email = session.metadata.get('user_email') or session.customer_details.get('email') or ''
+        payment_status = session.payment_status
+
+        order = Order.objects.filter(order_id=session_id).first()
+        if order:
+            order.status = 'paid' if payment_status == 'paid' else 'failed'
+            order.save()
+        else:
+            order = Order.objects.create(
+                order_id=session_id,
+                user_email=user_email,
+                amount=session.amount_total or 2499,
+                status='paid' if payment_status == 'paid' else 'failed'
+            )
+
+        if payment_status == 'paid':
+            if user_email:
+                AppUser.objects.filter(email=user_email).update(plan='premium')
+
+            AppEvent.objects.create(
+                event_name='payment_completed',
+                user_email=user_email,
+                properties={'session_id': session_id, 'amount': session.amount_total}
+            )
+
+            try:
+                send_posthog_event(
+                    event_name='payment_completed',
+                    distinct_id=user_email or 'anonymous',
+                    properties={'session_id': session_id, 'amount': session.amount_total}
+                )
+            except Exception as exc:
+                logger.warning('Failed to send PostHog event: %s', exc)
+
+        return redirect(f"/?payment=success&session_id={session_id}")
+
+    except Exception as e:
+        logger.error("Error verifying Stripe session: %s", e)
+        return HttpResponse(f"Error verifying payment: {str(e)}", status=500)
+
+
+@csrf_exempt
+def payment_status(request):
+    session_id = request.GET.get('session_id')
+    if not session_id:
+        return JsonResponse({'error': 'session_id is required'}, status=400)
+
+    order = Order.objects.filter(order_id=session_id).first()
+    if not order:
+        import stripe
+        if settings.STRIPE_SECRET_KEY:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            try:
+                session = stripe.checkout.Session.retrieve(session_id)
+                payment_status = session.payment_status
+                user_email = session.metadata.get('user_email') or ''
+
+                order = Order.objects.create(
+                    order_id=session_id,
+                    user_email=user_email,
+                    amount=session.amount_total or 2499,
+                    status='paid' if payment_status == 'paid' else 'created'
+                )
+                if payment_status == 'paid' and user_email:
+                    AppUser.objects.filter(email=user_email).update(plan='premium')
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        else:
+            return JsonResponse({'error': 'Order not found'}, status=404)
+
+    return JsonResponse({
+        'session_id': order.order_id,
+        'status': order.status,
+        'user_email': order.user_email,
+        'amount': order.amount,
+    })
+
+
 def stripe_cancel(request):
     return JsonResponse({'status': 'cancelled'})
 

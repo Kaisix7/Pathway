@@ -25,6 +25,13 @@ class ApiService {
     }
   }
 
+  /// Generate a unique idempotency key for payment requests
+  static String _generateIdempotencyKey() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final rand = now.hashCode.toRadixString(36);
+    return 'idem_${now}_$rand';
+  }
+
   static Future<bool> registerUser({
     required String name,
     required String email,
@@ -54,6 +61,37 @@ class ApiService {
     }
   }
 
+  // ── Google OAuth ────────────────────────────────────────────────────
+
+  /// Exchange Google OAuth code or fetch user info via the callback endpoint
+  static Future<Map<String, dynamic>?> loginWithGoogle({
+    String? code,
+    String? email,
+    String? name,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/oauth/google/callback/');
+      final queryParams = <String, String>{};
+      if (code != null) queryParams['code'] = code;
+      if (email != null) queryParams['email'] = email;
+      if (name != null) queryParams['name'] = name;
+
+      final response = await http.get(uri.replace(queryParameters: queryParams));
+
+      if (response.statusCode != 200) {
+        print('loginWithGoogle error: ${response.body}');
+        return null;
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      print('loginWithGoogle error: $e');
+      return null;
+    }
+  }
+
+  // ── Orders ──────────────────────────────────────────────────────────
+
   static Future<AppOrder?> createAirportOrder({
     required String name,
     required String userEmail,
@@ -69,7 +107,10 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/orders/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': _generateIdempotencyKey(),
+        },
         body: jsonEncode({
           'name': name,
           'user_email': userEmail,
@@ -171,7 +212,10 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/orders/$numericId/pay/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': _generateIdempotencyKey(),
+        },
       );
 
       print(response.statusCode);
@@ -189,6 +233,44 @@ class ApiService {
       rethrow;
     }
   }
+
+  // ── Payment Verification ────────────────────────────────────────────
+
+  /// Verify a Stripe payment session status from the backend
+  static Future<Map<String, dynamic>?> verifyPaymentSession(String sessionId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/payment/status/').replace(
+          queryParameters: {'session_id': sessionId},
+        ),
+      );
+
+      if (response.statusCode != 200) {
+        print('verifyPaymentSession error: ${response.body}');
+        return null;
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      print('verifyPaymentSession error: $e');
+      return null;
+    }
+  }
+
+  /// Get payment/order status by order ID
+  static Future<String?> getPaymentStatus(String orderId) async {
+    final numericId = orderId.replaceFirst('api_', '');
+    try {
+      final orders = await fetchOrders();
+      final order = orders.where((o) => o.id == 'api_$numericId').firstOrNull;
+      return order?.status;
+    } catch (e) {
+      print('getPaymentStatus error: $e');
+      return null;
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────
 
   static AppOrder _mapOrder(Map<String, dynamic> item) {
     final orderTitle = (item['order_title'] ?? '').toString();
