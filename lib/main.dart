@@ -81,7 +81,7 @@ class _PathwayAppState extends State<PathwayApp> {
                 letterSpacing: 0.5,
               ),
             ),
-            cardTheme: CardTheme(
+            cardTheme:  CardThemeData(
               color: const Color(0xFF1E293B),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
