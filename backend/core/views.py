@@ -376,7 +376,7 @@ def google_oauth_callback(request):
     }, status=200)
         return redirect(f"myapp://callback?token={token}")
 
-        return redirect(f"https://pathway-00.onrender.com/success?token={token}")
+        return redirect(f"/success?token={token}")
 
     code = request.GET.get('code')
 
@@ -743,10 +743,9 @@ def success_page(request):
 
 def checkout(request):
     import stripe
-    from django.http import HttpResponse
 
     if not settings.STRIPE_SECRET_KEY:
-        return HttpResponse("NO STRIPE KEY")
+        return JsonResponse({'error': 'NO STRIPE KEY'}, status=500)
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -756,22 +755,20 @@ def checkout(request):
             line_items=[{
                 'price_data': {
                     'currency': 'usd',
-                    'product_data': {'name': 'Test Product'},
-                    'unit_amount': 1000,
+                    'product_data': {'name': 'Pathway Premium'},
+                    'unit_amount': 2499,
                 },
                 'quantity': 1,
             }],
             mode='payment',
-            success_url='https://pathway-00.onrender.com/api/stripe/success/',
-            cancel_url='https://pathway-00.onrender.com/api/stripe/cancel/',
+            success_url=request.build_absolute_uri('/api/stripe/success/'),
+            cancel_url=request.build_absolute_uri('/api/stripe/cancel/'),
         )
 
-        return redirect(session.url)
+        return JsonResponse({'url': session.url})
 
     except Exception as e:
-        return HttpResponse(f"STRIPE ERROR: {str(e)}")
-
-    return redirect(session.url)
+        return JsonResponse({'error': f'STRIPE ERROR: {str(e)}'}, status=500)
 def stripe_cancel(request):
     return JsonResponse({'status': 'cancelled'})
 

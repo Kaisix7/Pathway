@@ -32,7 +32,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'core.middleware.SensitiveDataMaskingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -138,7 +137,7 @@ CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'False') == 'Tr
 JWT_EXP_SECONDS = int(os.getenv('JWT_EXP_SECONDS', '3600'))
 GOOGLE_CLIENT_ID = os.getenv("836321365787-1rh72ts264c7md67ompc0uc3gfbu5fqj.apps.googleusercontent.com")
 GOOGLE_CLIENT_SECRET = os.getenv("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GOOGLE_CLIENT_SECRET")
-GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'https://pathway-00.onrender.com/api/oauth/google/callback/')
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'http://127.0.0.1:8000/api/oauth/google/callback/')
 CAPTCHA_SECRET_KEY = os.getenv('CAPTCHA_SECRET_KEY', '')
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
@@ -216,9 +215,8 @@ import os
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STATIC_ROOT = BASE_DIR / "staticfiles"
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = ['*']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]

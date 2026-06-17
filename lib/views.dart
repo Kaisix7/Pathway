@@ -17,6 +17,7 @@ import 'package:country_list_pick/country_list_pick.dart';
 import 'map_view.dart';
 import 'visa_views.dart';
 import 'l10n/app_localizations.dart';
+import 'stripe_payment_screen.dart';
 
 class AuthView extends StatefulWidget {
   final AppState app;
@@ -61,7 +62,7 @@ class _AuthViewState extends State<AuthView> {
 
   @override
   void loginWithGoogle() {
-  final url = "https://pathway-00.onrender.com/api/oauth/google/";
+  final url = "${ApiService.baseUrl}/oauth/google/";
   html.window.location.href = url;
 }
   bool isValidEmail(String email) {
@@ -1050,6 +1051,16 @@ class ServicesView extends StatelessWidget {
         icon: Icons.workspace_premium_outlined,
         color: const Color(0xFF00BFA6),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionView(app: app))),
+      ),
+      _ServiceTile(
+        title: 'Pay with Stripe',
+        subtitle: 'Secure checkout and plan upgrade',
+        icon: Icons.payment_rounded,
+        color: Colors.deepPurple,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StripePaymentScreen(app: app)),
+        ),
       ),
     ];
 
