@@ -5,9 +5,12 @@ from datetime import timedelta
 import requests
 from django.http import JsonResponse
 from django.conf import settings
+from django.http import HttpResponse
+import uuid
+from django.shortcuts import redirect
+from .models import Order
 
 from django.db import connection
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -350,14 +353,14 @@ def google_oauth_login(request):
 @csrf_exempt
 def google_oauth_callback(request):
 
+    from core.models import AppUser
+    from core.security import create_token
+    from django.shortcuts import redirect
+
     email = request.GET.get('email') or request.POST.get('email')
     name = request.GET.get('name') or request.POST.get('name')
 
     if email:
-        from core.models import AppUser
-        from core.security import create_token
-
-
         user, _ = AppUser.objects.get_or_create(
             email=email,
             defaults={'name': name}
@@ -365,17 +368,21 @@ def google_oauth_callback(request):
 
         token = create_token(user)
 
-        return JsonResponse({
-            'message': 'login success',
-            'email': email,
-            'name': name,
-            'token': token
-        }, status=200)
+        if request.GET.get('email'):
+         return JsonResponse({
+        'token': token,
+        'email': email,
+        'name': name
+    }, status=200)
+        return redirect(f"myapp://callback?token={token}")
+
+        return redirect(f"/success?token={token}")
 
     code = request.GET.get('code')
 
     if not code:
         return JsonResponse({'error': 'code is required'}, status=400)
+
     token_response = requests.post(
         'https://oauth2.googleapis.com/token',
         data={
@@ -719,3 +726,53 @@ def register(request):
         })
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+def success_page(request):
+    return HttpResponse("""
+        <html>
+            <body>
+                <h2>Login successful</h2>
+                <script>
+                    const url = new URL(window.location.href);
+                    const token = url.searchParams.get("token");
+                    console.log("TOKEN:", token);
+                </script>
+            </body>
+        </html>
+    """)
+
+def checkout(request):
+    import stripe
+
+    if not settings.STRIPE_SECRET_KEY:
+        return JsonResponse({'error': 'NO STRIPE KEY'}, status=500)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {'name': 'Pathway Premium'},
+                    'unit_amount': 2499,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=request.build_absolute_uri('/api/stripe/success/'),
+            cancel_url=request.build_absolute_uri('/api/stripe/cancel/'),
+        )
+
+        return JsonResponse({'url': session.url})
+
+    except Exception as e:
+        return JsonResponse({'error': f'STRIPE ERROR: {str(e)}'}, status=500)
+def stripe_cancel(request):
+    return JsonResponse({'status': 'cancelled'})
+
+from django.shortcuts import render
+
+def frontend(request):
+    return render(request, "index.html")

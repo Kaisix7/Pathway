@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:convert';
+import 'dart:html' as html;
+import 'package:uni_links/uni_links.dart';
+import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
 import 'analytics.dart';
@@ -14,6 +17,7 @@ import 'package:country_list_pick/country_list_pick.dart';
 import 'map_view.dart';
 import 'visa_views.dart';
 import 'l10n/app_localizations.dart';
+import 'stripe_payment_screen.dart';
 
 class AuthView extends StatefulWidget {
   final AppState app;
@@ -24,6 +28,24 @@ class AuthView extends StatefulWidget {
 }
 
 class _AuthViewState extends State<AuthView> {
+   @override
+  void initState() {
+    super.initState();
+
+   if (!kIsWeb) {
+    uriLinkStream.listen((Uri? uri) {
+      if (uri != null && uri.queryParameters['token'] != null) {
+        final token = uri.queryParameters['token'];
+
+        print("TOKEN: $token");
+
+        setState(() {
+   });
+      }
+    });
+   }
+    fNationality.text = 'USA';
+  }
   UserRole role = UserRole.foreigner;
   String selectedCountryCode = 'US';
   bool isAccepted = false;
@@ -39,11 +61,10 @@ class _AuthViewState extends State<AuthView> {
   final wRole = TextEditingController(text: 'Coordinator');
 
   @override
-  void initState() {
-    super.initState();
-    fNationality.text = 'USA';
-  }
-  
+  void loginWithGoogle() {
+  final url = "${ApiService.baseUrl}/oauth/google/";
+  html.window.location.href = url;
+}
   bool isValidEmail(String email) {
     return email.contains('@') && email.contains('.');
   }
@@ -479,7 +500,20 @@ class _AuthViewState extends State<AuthView> {
   onPressed: () {
     _snack(context, 'Password reset link sent (demo)');
   },
-  child: const Text("Forgot password?"),
+ child: const Text("Forgot password?"),
+),
+
+const SizedBox(height: 10),
+
+  SizedBox(
+   width: double.infinity,
+   height: 50,
+   child: ElevatedButton(
+      onPressed: () {
+       loginWithGoogle();
+    }, 
+    child: const Text("Login with Google"),
+  ),
 ),
     ];
   }
@@ -1017,6 +1051,16 @@ class ServicesView extends StatelessWidget {
         icon: Icons.workspace_premium_outlined,
         color: const Color(0xFF00BFA6),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionView(app: app))),
+      ),
+      _ServiceTile(
+        title: 'Pay with Stripe',
+        subtitle: 'Secure checkout and plan upgrade',
+        icon: Icons.payment_rounded,
+        color: Colors.deepPurple,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StripePaymentScreen(app: app)),
+        ),
       ),
     ];
 

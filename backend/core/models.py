@@ -94,3 +94,12 @@ class AirportOrder(models.Model):
             models.Index(fields=['created_at'], name='order_created_idx'),
             models.Index(fields=['order_status'], name='order_status_idx'),
         ]
+import uuid
+
+class Order(models.Model):
+    order_id = models.CharField(max_length=100, unique=True)
+    amount = models.IntegerField()
+    status = models.CharField(max_length=20, default='created')
+
+    def __str__(self):
+        return self.order_id

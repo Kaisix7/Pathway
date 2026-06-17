@@ -1,4 +1,6 @@
 from django.urls import path, include
+from core.views import frontend
+from . import views
 from .views import (
     admin_users,
     google_oauth_callback,
@@ -20,6 +22,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('', frontend),
     path('health/', health),
     path('orders/', orders),
     path('orders/<int:order_id>/pay/', pay_order),
@@ -38,4 +41,7 @@ urlpatterns = [
     path('auth/', include('social_django.urls', namespace='social')),
     path('oauth/google/', google_oauth_login),
     path('oauth/google/callback/', google_oauth_callback),
+    path('success', views.success_page),
+    path('checkout/', views.checkout),
+    path('stripe/cancel/', views.stripe_cancel),
 ]
