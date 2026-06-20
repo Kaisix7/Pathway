@@ -232,7 +232,7 @@ def test_login_rate_limit_returns_429_after_five_attempts(client):
 @pytest.mark.django_db
 def test_track_event_and_retention(client):
     user = AppUser.objects.create(name='Aida', email='aida@example.com')
-    AppEvent.objects.create(event_name='registration', user_email=user.email)
+    AppEvent.objects.create(event_name='user signed up', user_email=user.email)
     AppEvent.objects.create(event_name='app_open', user_email=user.email, created_at=timezone.now())
     app_open = AppEvent.objects.latest('id')
     app_open.created_at = user.created_at + timedelta(days=1)
@@ -331,4 +331,24 @@ def test_stripe_cancel_view(client):
     response = client.get('/api/stripe/cancel/?referer_base=http://localhost:8000')
     assert response.status_code == 302
     assert 'payment=cancelled' in response['Location']
+
+
+@pytest.mark.django_db
+def test_kpi_analytics_endpoint(client):
+    from core.models import AppUser, AppEvent
+    user = AppUser.objects.create(name='Premium User', email='premium@example.com', plan='premium')
+    AppUser.objects.create(name='Free User', email='free@example.com', plan='free')
+    
+    AppEvent.objects.create(event_name='app_open', user_email='premium@example.com')
+    AppEvent.objects.create(event_name='payment failed', user_email='free@example.com')
+    
+    response = client.get('/api/analytics/kpi/')
+    assert response.status_code == 200
+    data = response.json()
+    assert data['registered_users'] == 2
+    assert data['premium_users'] == 1
+    assert data['conversion_rate_percent'] == 50.0
+    assert data['mrr_usd'] == 24.99
+    assert data['churn_rate_percent'] == 100.0
+
 

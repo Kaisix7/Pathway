@@ -34,16 +34,24 @@
   <link rel="manifest" href="manifest.json">
 
   <!-- GA4 Tracking -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XY317HK34J"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-XXXXXXXXXX');
+    gtag('config', 'G-XY317HK34J');
 
     // GA4 helper for Flutter to call via JS interop
     window.trackGA4Event = function(eventName, params) {
       gtag('event', eventName, params || {});
+    };
+
+    // PostHog Feature Flag helper for Flutter to call via JS interop
+    window.isPostHogFeatureEnabled = function(flagName) {
+      if (window.posthog) {
+        return window.posthog.isFeatureEnabled(flagName);
+      }
+      return false;
     };
   </script>
 

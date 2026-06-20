@@ -804,8 +804,16 @@ class _ShellState extends State<Shell> {
         onDestinationSelected: (i) {
           setState(() => index = i);
           final email = widget.app.contact.isNotEmpty ? widget.app.contact : widget.app.workerContact;
-          if (i == 1) {
+          if (i == 0) {
+            Analytics.track('view_home', userEmail: email);
+          } else if (i == 1) {
             Analytics.track('view_services', userEmail: email);
+          } else if (i == 2) {
+            Analytics.track('view_visa', userEmail: email);
+          } else if (i == 3) {
+            Analytics.track('view_assistant', userEmail: email);
+          } else if (i == 4) {
+            Analytics.track('view_account', userEmail: email);
           }
         },
         destinations: const [

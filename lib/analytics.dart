@@ -178,4 +178,17 @@ class Analytics {
       },
     );
   }
+
+  // ── Feature Flags ──────────────────────────────────────────────────
+  
+  static bool isFeatureEnabled(String flagName) {
+    if (!kIsWeb) return false;
+    try {
+      final res = js.context.callMethod('isPostHogFeatureEnabled', [flagName]);
+      return res == true;
+    } catch (e) {
+      debugPrint('Error checking feature flag: $e');
+      return false;
+    }
+  }
 }
