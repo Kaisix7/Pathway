@@ -1,0 +1,93 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block content %}
+  {% if kpis %}
+    <!-- Custom KPI Dashboard -->
+    <style>
+      .kpi-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .kpi-card {
+        background: #1e3f02;
+        border: 1px solid #244d03;
+        border-radius: 12px;
+        padding: 20px;
+        color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+      }
+      .kpi-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #9fe870;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .kpi-value {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 6px;
+      }
+      .kpi-desc {
+        font-size: 11px;
+        color: #d0e7bd;
+      }
+      .kpi-header {
+        font-size: 20px;
+        font-weight: 800;
+        color: #163300;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .kpi-header span {
+        background: #9fe870;
+        color: #163300;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+    </style>
+    
+    <div class="kpi-header">
+      PATHWAY Live KPI Dashboard <span>WEEK 5</span>
+    </div>
+    
+    <div class="kpi-container">
+      <div class="kpi-card">
+        <div class="kpi-title">Conversion Rate</div>
+        <div class="kpi-value">{{ kpis.conversion_rate_percent }}%</div>
+        <div class="kpi-desc">Premium users / total registered users</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Monthly Revenue (MRR)</div>
+        <div class="kpi-value">${{ kpis.mrr_usd|floatformat:2 }}</div>
+        <div class="kpi-desc">Active paying subscriptions * $24.99</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Churn Rate</div>
+        <div class="kpi-value">{{ kpis.churn_rate_percent }}%</div>
+        <div class="kpi-desc">Cancellations / premium users ratio</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Activity (DAU / MAU)</div>
+        <div class="kpi-value">{{ kpis.dau }} / {{ kpis.mau }}</div>
+        <div class="kpi-desc">Stickiness Ratio: {{ kpis.stickiness_ratio_percent }}%</div>
+      </div>
+    </div>
+  {% endif %}
+
+  {{ block.super }}
+{% endblock %}

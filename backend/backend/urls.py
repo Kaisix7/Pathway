@@ -16,7 +16,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path, re_path
-from core.views import health, frontend
+from core.views import health, frontend, _calculate_kpi_values
+
+original_index = admin.site.index
+
+def custom_admin_index(request, extra_context=None):
+    if extra_context is None:
+        extra_context = {}
+    try:
+        extra_context['kpis'] = _calculate_kpi_values()
+    except Exception:
+        extra_context['kpis'] = None
+    return original_index(request, extra_context=extra_context)
+
+admin.site.index = custom_admin_index
 
 urlpatterns = [
     path('health', health),
