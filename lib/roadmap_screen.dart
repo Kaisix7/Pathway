@@ -1,3 +1,14 @@
+import 'package:flutter/material.dart';
+import 'models.dart';
+
+class RoadmapScreen extends StatefulWidget {
+  final List<TaskItem> tasks;
+  const RoadmapScreen({super.key, required this.tasks});
+
+  @override
+  State<RoadmapScreen> createState() => _RoadmapScreenState();
+}
+
 class _RoadmapScreenState extends State<RoadmapScreen> {
   double progress = 0.0;
   int percent = 0;
@@ -9,8 +20,8 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
   }
 
   void updateProgress() {
-    final int roadmapTotal = tasks.length;
-    final int roadmapDone = tasks.where((task) => task.done).length;
+    final int roadmapTotal = widget.tasks.length;
+    final int roadmapDone = widget.tasks.where((task) => task.done).length;
 
     if (roadmapTotal == 0) {
       progress = 0.0;
@@ -23,7 +34,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
 
   void toggleTask(int index) {
     setState(() {
-      tasks[index].done = !tasks[index].done;
+      widget.tasks[index].done = !widget.tasks[index].done;
       updateProgress();
     });
   }
@@ -31,7 +42,6 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ...existing code...
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -54,9 +64,9 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
           ),
           Expanded(
             child: ListView.builder(
-              itemCount: tasks.length,
+              itemCount: widget.tasks.length,
               itemBuilder: (context, index) {
-                final task = tasks[index];
+                final task = widget.tasks[index];
 
                 return CheckboxListTile(
                   value: task.done,

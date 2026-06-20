@@ -28,7 +28,7 @@ from .security import (
     verify_password,
 )
 from .tasks import send_welcome_event
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl, quote
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +337,8 @@ def _captcha_is_valid(token):
 
 
 def google_oauth_login(request):
+    # Capture the referer or explicit redirect_uri to know where to redirect after callback
+    frontend_url = request.GET.get('redirect_uri') or request.META.get('HTTP_REFERER') or 'http://127.0.0.1:8000/'
     params = {
         'client_id': settings.GOOGLE_CLIENT_ID,
         'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
@@ -344,9 +346,9 @@ def google_oauth_login(request):
         'scope': 'openid email profile',
         'access_type': 'offline',
         'prompt': 'select_account',
+        'state': frontend_url,
     }
     query = urlencode(params)
-    print("REDIRECT URL:", f'https://accounts.google.com/o/oauth2/v2/auth?{query}')
     return redirect(f'https://accounts.google.com/o/oauth2/v2/auth?{query}')
 
 
@@ -359,6 +361,7 @@ def google_oauth_callback(request):
 
     email = request.GET.get('email') or request.POST.get('email')
     name = request.GET.get('name') or request.POST.get('name') or ''
+    state = request.GET.get('state') or request.POST.get('state') or 'http://127.0.0.1:8000/'
 
     if email:
         user, _ = AppUser.objects.get_or_create(
@@ -368,19 +371,31 @@ def google_oauth_callback(request):
 
         token = create_token(user)
 
-        if request.GET.get('email') or request.POST.get('email'):
-            return JsonResponse({
+        # If state/referer is present and this isn't a direct API testing request, redirect with credentials
+        if state and not (request.GET.get('email') or request.POST.get('email')):
+            parsed = urlparse(state)
+            query = dict(parse_qsl(parsed.query))
+            query.update({
                 'token': token,
                 'email': email,
-                'name': name,
-                'user': _user_payload(user)
-            }, status=200)
-        return redirect(f"myapp://callback?token={token}")
+                'name': name
+            })
+            return redirect(urlunparse(parsed._replace(query=urlencode(query))))
+
+        return JsonResponse({
+            'token': token,
+            'email': email,
+            'name': name,
+            'user': _user_payload(user)
+        }, status=200)
 
     code = request.GET.get('code')
 
     if not code:
-        return JsonResponse({'error': 'code is required'}, status=400)
+        parsed = urlparse(state)
+        query = dict(parse_qsl(parsed.query))
+        query.update({'error': 'code_is_required'})
+        return redirect(urlunparse(parsed._replace(query=urlencode(query))))
 
     token_response = requests.post(
         'https://oauth2.googleapis.com/token',
@@ -397,7 +412,10 @@ def google_oauth_callback(request):
     access_token = token_json.get('access_token')
 
     if not access_token:
-        return JsonResponse({'error': 'failed to get access token', 'details': token_json}, status=400)
+        parsed = urlparse(state)
+        query = dict(parse_qsl(parsed.query))
+        query.update({'error': 'failed_to_get_access_token'})
+        return redirect(urlunparse(parsed._replace(query=urlencode(query))))
 
     user_response = requests.get(
         'https://www.googleapis.com/oauth2/v1/userinfo',
@@ -409,7 +427,10 @@ def google_oauth_callback(request):
     name = user_data.get('name') or ''
 
     if not email:
-        return JsonResponse({'error': 'email not provided'}, status=400)
+        parsed = urlparse(state)
+        query = dict(parse_qsl(parsed.query))
+        query.update({'error': 'email_not_provided'})
+        return redirect(urlunparse(parsed._replace(query=urlencode(query))))
 
     user, _ = AppUser.objects.get_or_create(
         email=email,
@@ -418,12 +439,15 @@ def google_oauth_callback(request):
 
     token = create_token(user)
 
-    return JsonResponse({
+    # Redirect to the frontend URL stored in state with token
+    parsed = urlparse(state)
+    query = dict(parse_qsl(parsed.query))
+    query.update({
         'token': token,
         'email': email,
-        'name': name,
-        'user': _user_payload(user)
-    }, status=200)
+        'name': name
+    })
+    return redirect(urlunparse(parsed._replace(query=urlencode(query))))
 
 def profile(request):
     if request.method != 'GET':
@@ -751,12 +775,19 @@ def checkout(request):
     stripe.api_key = settings.STRIPE_SECRET_KEY
     user_email = request.GET.get('user_email') or request.POST.get('user_email') or ''
 
+    # Get the request referer host or default to localhost
+    referer = request.META.get('HTTP_REFERER') or 'http://127.0.0.1:8000/'
+    from urllib.parse import urlparse, quote
+    parsed_referer = urlparse(referer)
+    referer_base = f"{parsed_referer.scheme}://{parsed_referer.netloc}"
+
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             customer_email=user_email if user_email else None,
             metadata={
                 'user_email': user_email,
+                'referer_base': referer_base,
             },
             line_items=[{
                 'price_data': {
@@ -768,7 +799,7 @@ def checkout(request):
             }],
             mode='payment',
             success_url=request.build_absolute_uri('/api/stripe/success/') + '?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=request.build_absolute_uri('/api/stripe/cancel/'),
+            cancel_url=request.build_absolute_uri('/api/stripe/cancel/') + '?referer_base=' + quote(referer_base),
         )
 
         # Record the order in our DB
@@ -806,6 +837,7 @@ def stripe_success(request):
     try:
         session = stripe.checkout.Session.retrieve(session_id)
         user_email = session.metadata.get('user_email') or session.customer_details.get('email') or ''
+        referer_base = session.metadata.get('referer_base') or 'http://127.0.0.1:8000'
         payment_status = session.payment_status
 
         order = Order.objects.filter(order_id=session_id).first()
@@ -839,7 +871,7 @@ def stripe_success(request):
             except Exception as exc:
                 logger.warning('Failed to send PostHog event: %s', exc)
 
-        return redirect(f"/?payment=success&session_id={session_id}")
+        return redirect(f"{referer_base}/?payment=success&session_id={session_id}")
 
     except Exception as e:
         logger.error("Error verifying Stripe session: %s", e)
@@ -884,7 +916,8 @@ def payment_status(request):
 
 
 def stripe_cancel(request):
-    return JsonResponse({'status': 'cancelled'})
+    referer_base = request.GET.get('referer_base') or 'http://127.0.0.1:8000/'
+    return redirect(f"{referer_base}/?payment=cancelled")
 
 from django.shortcuts import render
 

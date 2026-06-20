@@ -40,6 +40,7 @@ urlpatterns = [
     path('2fa/verify/', verify_2fa),
     path('auth/', include('social_django.urls', namespace='social')),
     path('oauth/google/', google_oauth_login),
+    path('oauth/google/callback', google_oauth_callback),
     path('oauth/google/callback/', google_oauth_callback),
     path('success', views.success_page),
     path('checkout/', views.checkout),

@@ -44,7 +44,7 @@ class _AuthViewState extends State<AuthView> {
           widget.app.loginWithOAuthToken(token: token, email: email, name: name);
         }
       } catch (e) {
-        print("Web deep link parsing error: $e");
+        debugPrint("Web deep link parsing error: $e");
       }
     } else {
       // Handle OAuth callback on mobile
@@ -71,7 +71,7 @@ class _AuthViewState extends State<AuthView> {
           }
         });
       } catch (e) {
-        print("Mobile deep link parsing error: $e");
+        debugPrint("Mobile deep link parsing error: $e");
       }
     }
     fNationality.text = 'USA';
@@ -91,7 +91,13 @@ class _AuthViewState extends State<AuthView> {
   final wRole = TextEditingController(text: 'Coordinator');
 
   Future<void> loginWithGoogle() async {
-    final url = Uri.parse("${ApiService.baseUrl}/oauth/google/");
+    String redirectUriParam = 'http://localhost:8000/';
+    if (kIsWeb) {
+      redirectUriParam = '${html.window.location.origin ?? "http://localhost:8000"}${html.window.location.pathname ?? ""}';
+    }
+    final url = Uri.parse("${ApiService.baseUrl}/oauth/google/").replace(
+      queryParameters: {'redirect_uri': redirectUriParam}
+    );
     final launched = await launchUrl(
       url,
       mode: LaunchMode.externalApplication,
@@ -292,7 +298,7 @@ class _AuthViewState extends State<AuthView> {
     final grad = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF0F172A), Color(0xFF1E1B4B)],
+      colors: [Color(0xFF163300), Color(0xFF0D2100)],
     );
 
     return Scaffold(
@@ -311,11 +317,11 @@ class _AuthViewState extends State<AuthView> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.15),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2), width: 1.5),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2), width: 1.5),
                       ),
-                      child: const Icon(Icons.public, color: Color(0xFF00BFA6), size: 32),
+                      child: Icon(Icons.public, color: Theme.of(context).colorScheme.primary, size: 32),
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -342,7 +348,7 @@ class _AuthViewState extends State<AuthView> {
                       child: Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B).withOpacity(0.55),
+                          color: Theme.of(context).colorScheme.surface.withOpacity(0.55),
                           borderRadius: BorderRadius.circular(32),
                           border: Border.all(color: Colors.white.withOpacity(0.08)),
                           boxShadow: [
@@ -372,9 +378,9 @@ class _AuthViewState extends State<AuthView> {
                               height: 58,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF00BFA6),
-                                  foregroundColor: Colors.black,
-                                  shadowColor: const Color(0xFF00BFA6).withOpacity(0.3),
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                  shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                                   elevation: 8,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
@@ -460,12 +466,12 @@ class _AuthViewState extends State<AuthView> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF6366F1) : Colors.transparent,
+          color: active ? Theme.of(context).colorScheme.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.25),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -475,14 +481,14 @@ class _AuthViewState extends State<AuthView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: active ? Colors.white : Colors.white54),
+            Icon(icon, size: 18, color: active ? Theme.of(context).colorScheme.onPrimary : Colors.white54),
             const SizedBox(width: 8),
             Text(
               text,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
-                color: active ? Colors.white : Colors.white54,
+                color: active ? Theme.of(context).colorScheme.onPrimary : Colors.white54,
               ),
             ),
           ],
@@ -576,12 +582,12 @@ class _AuthViewState extends State<AuthView> {
         children: [
           TextButton(
             onPressed: _showTermsDialog,
-            child: const Text('View Terms', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+            child: Text('View Terms', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
           ),
           const Text('•', style: TextStyle(color: Colors.white24)),
           TextButton(
             onPressed: _showPrivacyDialog,
-            child: const Text('View Privacy', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+            child: Text('View Privacy', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -602,10 +608,10 @@ class _AuthViewState extends State<AuthView> {
         height: 54,
         child: OutlinedButton(
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: BorderSide(color: Colors.white.withOpacity(0.12)),
+            foregroundColor: Theme.of(context).colorScheme.primary,
+            side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            backgroundColor: Colors.white.withOpacity(0.04),
+            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
           ),
           onPressed: () {
             loginWithGoogle();
@@ -713,7 +719,7 @@ class _AuthViewState extends State<AuthView> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle_outline, size: 16, color: Color(0xFF00BFA6)),
+                  Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -777,7 +783,7 @@ class _ShellState extends State<Shell> {
           });
         }
       } catch (e) {
-        print("Web payment status check error: $e");
+        debugPrint("Web payment status check error: $e");
       }
     }
   }
@@ -3030,10 +3036,10 @@ class _MigrationViewState extends State<MigrationView> {
       return;
     }
 
-    print("Migration submit:");
-    print("passport=${passportController.text.trim()}");
-    print("address=${addressController.text.trim()}");
-    print("contact=${contactController.text.trim()}");
+    debugPrint("Migration submit:");
+    debugPrint("passport=${passportController.text.trim()}");
+    debugPrint("address=${addressController.text.trim()}");
+    debugPrint("contact=${contactController.text.trim()}");
 
     await FirebaseFirestore.instance
         .collection("migration_requests")

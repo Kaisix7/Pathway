@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:js' as js;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -14,25 +15,25 @@ class Analytics {
     }
 
     if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
+      return 'http://localhost:8000/api';
     }
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return 'http://10.0.2.2:8000/api';
       default:
-        return 'http://127.0.0.1:8000/api';
+        return 'http://localhost:8000/api';
     }
   }
 
-  // ── Generic tracker (existing) ──────────────────────────────────────
+  // ── Generic tracker ──────────────────────────────────────────────────
 
   static Future<void> track(
     String eventName, {
     String userEmail = '',
     Map<String, dynamic>? properties,
   }) async {
-    print('EVENT: $eventName');
+    debugPrint('EVENT: $eventName');
 
     try {
       await http.post(
@@ -57,8 +58,21 @@ class Analytics {
           }),
         );
       }
+
+      // GA4 Web Integration via JS Interop
+      if (kIsWeb) {
+        try {
+          final ga4Event = properties?['ga4_event'] as String?;
+          if (ga4Event != null) {
+            final cleanProps = Map<String, dynamic>.from(properties!)..remove('ga4_event');
+            js.context.callMethod('trackGA4Event', [ga4Event, js.JsObject.jsify(cleanProps)]);
+          }
+        } catch (e) {
+          debugPrint('GA4 track error: $e');
+        }
+      }
     } catch (e) {
-      print('analytics track error: $e');
+      debugPrint('analytics track error: $e');
     }
   }
 
@@ -79,20 +93,20 @@ class Analytics {
         }),
       );
     } catch (e) {
-      print('analytics identify error: $e');
+      debugPrint('analytics identify error: $e');
     }
   }
 
   // ── Typed Event Methods (PostHog + GA4 mapping) ─────────────────────
 
-  /// PostHog: user_signed_up  |  GA4: sign_up
+  /// PostHog: "user signed up"  |  GA4: sign_up
   static Future<void> trackSignUp(String email, {String? name, String? nationality}) async {
     await identify(email, properties: {
       'name': name ?? '',
       'nationality': nationality ?? '',
     });
     await track(
-      'user_signed_up',
+      'user signed up',
       userEmail: email,
       properties: {
         'ga4_event': 'sign_up',
@@ -102,11 +116,11 @@ class Analytics {
     );
   }
 
-  /// PostHog: user_logged_in
+  /// PostHog: "user logged in"
   static Future<void> trackLogin(String email, {String source = 'email'}) async {
     await identify(email);
     await track(
-      'user_logged_in',
+      'user logged in',
       userEmail: email,
       properties: {
         'source': source,
@@ -114,10 +128,10 @@ class Analytics {
     );
   }
 
-  /// PostHog: checkout_started  |  GA4: begin_checkout
+  /// PostHog: "checkout started"  |  GA4: begin_checkout
   static Future<void> trackCheckoutStarted(String email, {double? amount, String? plan}) async {
     await track(
-      'checkout_started',
+      'checkout started',
       userEmail: email,
       properties: {
         'ga4_event': 'begin_checkout',
@@ -127,24 +141,25 @@ class Analytics {
     );
   }
 
-  /// PostHog: payment_completed  |  GA4: purchase
+  /// PostHog: "payment completed"  |  GA4: purchase
   static Future<void> trackPaymentCompleted(String email, {double? amount, String? plan}) async {
     await track(
-      'payment_completed',
+      'payment completed',
       userEmail: email,
       properties: {
         'ga4_event': 'purchase',
         'amount': amount ?? 0,
         'plan': plan ?? 'premium',
         'currency': 'USD',
+        'value': amount ?? 0,
       },
     );
   }
 
-  /// PostHog: payment_failed
+  /// PostHog: "payment failed"
   static Future<void> trackPaymentFailed(String email, {String? error}) async {
     await track(
-      'payment_failed',
+      'payment failed',
       userEmail: email,
       properties: {
         'error': error ?? 'unknown',
