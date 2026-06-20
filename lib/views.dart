@@ -196,11 +196,7 @@ class _AuthViewState extends State<AuthView> {
   Future<void> _handleStartPressed() async {
     if (role == UserRole.admin) {
       if (fContact.text.trim().isEmpty) {
-        _snack(context, 'Please enter your superuser email');
-        return;
-      }
-      if (!isValidEmail(fContact.text.trim())) {
-        _snack(context, 'Invalid email format');
+        _snack(context, 'Please enter your superuser email or username');
         return;
       }
       if (adminPassword.text.isEmpty) {
@@ -720,13 +716,12 @@ class _AuthViewState extends State<AuthView> {
 
   List<Widget> _adminForm(BuildContext context) {
     return [
-      _label('Superuser Email'),
+      _label('Superuser Email or Username'),
       TextField(
         controller: fContact,
-        keyboardType: TextInputType.emailAddress,
         decoration: const InputDecoration(
-          hintText: 'Enter your superuser email',
-          prefixIcon: Icon(Icons.email_outlined),
+          hintText: 'Enter your superuser email or username',
+          prefixIcon: Icon(Icons.person_outline),
         ),
       ),
       const SizedBox(height: 16),

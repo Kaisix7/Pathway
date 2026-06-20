@@ -722,31 +722,41 @@ def login(request):
     from django.contrib.auth import authenticate
     from django.contrib.auth.models import User
 
-    # Check if there is a Django User with this email or username
-    django_user = User.objects.filter(email=email).first()
-    if not django_user:
-        django_user = User.objects.filter(username=email).first()
+    # Find matching django users by email or username
+    django_users = list(User.objects.filter(email=email))
+    if not django_users:
+        django_users = list(User.objects.filter(username=email))
 
     password = data.get('password', '')
 
-    if django_user and (django_user.is_superuser or django_user.is_staff):
-        authenticated_user = authenticate(username=django_user.username, password=password)
-        if authenticated_user:
-            # Sync to AppUser as admin role
-            user, created = AppUser.objects.get_or_create(
-                email=django_user.email or django_user.username,
-                defaults={
-                    'name': django_user.get_full_name() or django_user.username,
-                    'role': AppUser.ROLE_ADMIN,
-                    'plan': 'premium',
-                }
-            )
-            if not created and user.role != AppUser.ROLE_ADMIN:
-                user.role = AppUser.ROLE_ADMIN
-                user.save()
-        else:
-            logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
-            return JsonResponse({'error': 'invalid credentials'}, status=401)
+    authenticated_user = None
+    django_user_match = None
+    for du in django_users:
+        if du.is_superuser or du.is_staff:
+            au = authenticate(username=du.username, password=password)
+            if au:
+                authenticated_user = au
+                django_user_match = du
+                break
+
+    if authenticated_user:
+        # Sync to AppUser as admin role
+        user_email = django_user_match.email or django_user_match.username
+        user, created = AppUser.objects.get_or_create(
+            email=user_email,
+            defaults={
+                'name': django_user_match.get_full_name() or django_user_match.username,
+                'role': AppUser.ROLE_ADMIN,
+                'plan': 'premium',
+            }
+        )
+        if not created and user.role != AppUser.ROLE_ADMIN:
+            user.role = AppUser.ROLE_ADMIN
+            user.save()
+    elif django_users and any(du.is_superuser or du.is_staff for du in django_users):
+        # We found admin users but password didn't match any
+        logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
+        return JsonResponse({'error': 'invalid credentials'}, status=401)
     else:
         user = AppUser.objects.filter(email=email).first()
         if not user:
