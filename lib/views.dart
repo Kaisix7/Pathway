@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:universal_html/html.dart' as html;
 import 'package:uni_links/uni_links.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -192,6 +193,18 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Future<void> _handleStartPressed() async {
+    if (role == UserRole.admin) {
+      if (fContact.text.trim().isEmpty) {
+        _snack(context, 'Please enter your superuser email');
+        return;
+      }
+      if (!isValidEmail(fContact.text.trim())) {
+        _snack(context, 'Invalid email format');
+        return;
+      }
+      await widget.app.loginAdmin(fContact.text.trim());
+      return;
+    }
     if (role == UserRole.foreigner) {
       if (fName.text.trim().isEmpty) {
         _snack(context, 'Please enter your first name');
@@ -369,6 +382,7 @@ class _AuthViewState extends State<AuthView> {
                                 children: [
                                   if (role == UserRole.foreigner) ..._foreignerForm(context),
                                   if (role == UserRole.worker) ..._workerForm(context),
+                                  if (role == UserRole.admin) ..._adminForm(context),
                                 ],
                               ),
                             ),
@@ -452,6 +466,15 @@ class _AuthViewState extends State<AuthView> {
               icon: Icons.badge_outlined,
               text: 'Worker',
               onTap: () => setState(() => role = UserRole.worker),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _seg(
+              active: role == UserRole.admin,
+              icon: Icons.admin_panel_settings_outlined,
+              text: 'Admin',
+              onTap: () => setState(() => role = UserRole.admin),
             ),
           ),
         ],
@@ -685,6 +708,30 @@ class _AuthViewState extends State<AuthView> {
     ];
   }
 
+  List<Widget> _adminForm(BuildContext context) {
+    return [
+      _label('Superuser Email'),
+      TextField(
+        controller: fContact,
+        keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(
+          hintText: 'Enter your superuser email',
+          prefixIcon: Icon(Icons.email_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
+      _hintBox(
+        title: 'Admin Dashboard',
+        lines: const [
+          'View live conversion rates',
+          'Track monthly recurring revenue (MRR)',
+          'Check subscription churn rate',
+          'Monitor DAU/MAU user activity stats',
+        ],
+      ),
+    ];
+  }
+
   Widget _label(String t) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -790,20 +837,34 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomeView(app: widget.app),
-      ServicesView(app: widget.app),
-      const VisaView(),
-      AssistantView(app: widget.app),
-      AccountView(app: widget.app),
-    ];
+    final pages = widget.app.role == UserRole.admin
+        ? [
+            AdminDashboardView(app: widget.app),
+            AccountView(app: widget.app),
+          ]
+        : [
+            HomeView(app: widget.app),
+            ServicesView(app: widget.app),
+            const VisaView(),
+            AssistantView(app: widget.app),
+            AccountView(app: widget.app),
+          ];
+    final safeIndex = index >= pages.length ? 0 : index;
     return Scaffold(
-      body: pages[index],
+      body: pages[safeIndex],
       bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
+        selectedIndex: safeIndex,
         onDestinationSelected: (i) {
           setState(() => index = i);
           final email = widget.app.contact.isNotEmpty ? widget.app.contact : widget.app.workerContact;
+          if (widget.app.role == UserRole.admin) {
+            if (i == 0) {
+              Analytics.track('view_admin_dashboard', userEmail: email);
+            } else if (i == 1) {
+              Analytics.track('view_account', userEmail: email);
+            }
+            return;
+          }
           if (i == 0) {
             Analytics.track('view_home', userEmail: email);
           } else if (i == 1) {
@@ -816,36 +877,49 @@ class _ShellState extends State<Shell> {
             Analytics.track('view_account', userEmail: email);
           }
         },
-        destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'HOME',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.grid_view_outlined),
-          selectedIcon: Icon(Icons.grid_view),
-          label: 'SERVICES',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.description_outlined),
-          selectedIcon: Icon(Icons.description),
-          label: 'VISA',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.chat_bubble_outline),
-          selectedIcon: Icon(Icons.chat_bubble),
-          label: 'ASSISTANT',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'ACCOUNT',
-        ),
-      ],
-    ),
-  );
-}
+        destinations: widget.app.role == UserRole.admin
+            ? const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'DASHBOARD',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'ACCOUNT',
+                ),
+              ]
+            : const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'HOME',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.grid_view_outlined),
+                  selectedIcon: Icon(Icons.grid_view),
+                  label: 'SERVICES',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.description_outlined),
+                  selectedIcon: Icon(Icons.description),
+                  label: 'VISA',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  selectedIcon: Icon(Icons.chat_bubble),
+                  label: 'ASSISTANT',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'ACCOUNT',
+                ),
+              ],
+      ),
+    );
+  }
 }
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
@@ -3132,5 +3206,214 @@ class _MigrationViewState extends State<MigrationView> {
     addressController.dispose();
     contactController.dispose();
     super.dispose();
+  }
+}
+
+
+class AdminDashboardView extends StatefulWidget {
+  final AppState app;
+  const AdminDashboardView({super.key, required this.app});
+
+  @override
+  State<AdminDashboardView> createState() => _AdminDashboardViewState();
+}
+
+class _AdminDashboardViewState extends State<AdminDashboardView> {
+  Map<String, dynamic>? _kpis;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchKpi();
+  }
+
+  Future<void> _fetchKpi() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final response = await http.get(Uri.parse('${ApiService.baseUrl}/analytics/kpi/'));
+      if (response.statusCode == 200) {
+        setState(() {
+          _kpis = jsonDecode(response.body);
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _error = 'Failed to load KPIs: ${response.statusCode}';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Error connecting to API: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: TopBar(
+        title: 'KPI DASHBOARD',
+        app: widget.app,
+        trailing: IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: _fetchKpi,
+        ),
+      ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9FE870)))
+            : _error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+                          const SizedBox(height: 16),
+                          Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: _fetchKpi,
+                            child: const Text('Try Again'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _buildDashboard(),
+      ),
+    );
+  }
+
+  Widget _buildDashboard() {
+    final conversion = _kpis?['conversion_rate_percent'] ?? 0.0;
+    final mrr = _kpis?['mrr_usd'] ?? 0.0;
+    final churn = _kpis?['churn_rate_percent'] ?? 0.0;
+    final dau = _kpis?['dau'] ?? 0;
+    final mau = _kpis?['mau'] ?? 0;
+    final stickiness = _kpis?['stickiness_ratio_percent'] ?? 0.0;
+    final totalUsers = _kpis?['registered_users'] ?? 0;
+    final premiumUsers = _kpis?['premium_users'] ?? 0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Live Startup Metrics',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 24,
+                  letterSpacing: 0.5,
+                ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Dynamic KPI stats computed from database logs.',
+            style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 30),
+          GridView.count(
+            crossAxisCount: MediaQuery.of(context).size.width > 600 ? 2 : 1,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.6,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildKpiCard('CONVERSION RATE', '$conversion%', 'Premium users / Total registrations'),
+              _buildKpiCard('MONTHLY REVENUE (MRR)', '\$${mrr.toStringAsFixed(2)}', 'Active premium users * \$24.99'),
+              _buildKpiCard('CHURN RATE', '$churn%', 'Cancellations ratio'),
+              _buildKpiCard('DAU / MAU ACTIVITY', '$dau / $mau', 'Stickiness Ratio: $stickiness%'),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'User Demographics',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildStatRow('Total Registered Users', '$totalUsers'),
+                  const Divider(color: Colors.white10),
+                  _buildStatRow('Total Premium Pass Holders', '$premiumUsers'),
+                  const Divider(color: Colors.white10),
+                  _buildStatRow('Free Tier Users', '${totalUsers - premiumUsers}'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKpiCard(String title, String value, String desc) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF9FE870),
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 26,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              desc,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String val) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+          Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
   }
 }

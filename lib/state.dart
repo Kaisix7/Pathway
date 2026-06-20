@@ -184,6 +184,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loginAdmin(String email) async {
+    savedEmail = email;
+    role = UserRole.admin;
+    authed = true;
+    
+    await Analytics.trackLogin(email, source: 'admin');
+    await Analytics.identify(email, properties: {
+      'role': 'admin',
+    });
+    
+    notifyListeners();
+  }
+
   void logout() {
     // Clear all user data
     authed = false;

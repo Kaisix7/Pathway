@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum UserRole { foreigner, worker }
+enum UserRole { foreigner, worker, admin }
 
 enum Plan { free, standard, premium }
 
