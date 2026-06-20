@@ -922,4 +922,8 @@ def stripe_cancel(request):
 from django.shortcuts import render
 
 def frontend(request):
-    return render(request, "index.html")
+    import os
+    return render(request, "index.html", {
+        'POSTHOG_API_KEY': os.getenv('POSTHOG_API_KEY', ''),
+        'POSTHOG_HOST': os.getenv('POSTHOG_HOST', 'https://app.posthog.com'),
+    })

@@ -801,8 +801,14 @@ class _ShellState extends State<Shell> {
       body: pages[index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
-        onDestinationSelected: (i) => setState(() => index = i),
-      destinations: const [
+        onDestinationSelected: (i) {
+          setState(() => index = i);
+          final email = widget.app.contact.isNotEmpty ? widget.app.contact : widget.app.workerContact;
+          if (i == 1) {
+            Analytics.track('view_services', userEmail: email);
+          }
+        },
+        destinations: const [
         NavigationDestination(
           icon: Icon(Icons.home_outlined),
           selectedIcon: Icon(Icons.home),
