@@ -247,3 +247,88 @@ def test_track_event_and_retention(client):
 
     assert response.status_code == 200
     assert response.json()['activation_count'] == 1
+
+
+@pytest.mark.django_db
+def test_google_oauth_login(client):
+    response = client.get('/api/oauth/google/?redirect_uri=http://localhost:59390/')
+    assert response.status_code == 302
+    assert 'accounts.google.com' in response['Location']
+
+
+@pytest.mark.django_db
+def test_checkout_endpoint(client, monkeypatch):
+    import stripe
+    from django.conf import settings
+
+    monkeypatch.setattr(settings, 'STRIPE_SECRET_KEY', 'mock_secret_key')
+
+    class MockSession:
+        id = 'mock_sess_123'
+        url = 'https://checkout.stripe.com/pay/mock_sess_123'
+
+    monkeypatch.setattr(stripe.checkout.Session, 'create', lambda **kwargs: MockSession())
+
+    response = client.get('/api/checkout/?user_email=test@example.com')
+    assert response.status_code == 200
+    assert response.json()['session_id'] == 'mock_sess_123'
+    assert response.json()['url'] == 'https://checkout.stripe.com/pay/mock_sess_123'
+
+
+@pytest.mark.django_db
+def test_stripe_success_view(client, monkeypatch):
+    import stripe
+    from django.conf import settings
+    from core.models import Order
+
+    monkeypatch.setattr(settings, 'STRIPE_SECRET_KEY', 'mock_secret_key')
+
+    class MockSession:
+        id = 'mock_sess_123'
+        payment_status = 'paid'
+        amount_total = 2499
+        metadata = {'user_email': 'test@example.com', 'referer_base': 'http://localhost:8000'}
+
+    monkeypatch.setattr(stripe.checkout.Session, 'retrieve', lambda session_id: MockSession())
+
+    response = client.get('/api/stripe/success/?session_id=mock_sess_123')
+    assert response.status_code == 302
+    assert 'payment=success' in response['Location']
+
+
+@pytest.mark.django_db
+def test_payment_status_view_found_in_db(client):
+    from core.models import Order
+    Order.objects.create(order_id='mock_sess_123', user_email='test@example.com', amount=2499, status='paid')
+
+    response = client.get('/api/payment/status/?session_id=mock_sess_123')
+    assert response.status_code == 200
+    assert response.json()['status'] == 'paid'
+
+
+@pytest.mark.django_db
+def test_payment_status_view_not_found_retrieved_from_stripe(client, monkeypatch):
+    import stripe
+    from django.conf import settings
+
+    monkeypatch.setattr(settings, 'STRIPE_SECRET_KEY', 'mock_secret_key')
+
+    class MockSession:
+        id = 'mock_sess_123'
+        payment_status = 'paid'
+        amount_total = 2499
+        metadata = {'user_email': 'test@example.com'}
+
+    monkeypatch.setattr(stripe.checkout.Session, 'retrieve', lambda session_id: MockSession())
+
+    response = client.get('/api/payment/status/?session_id=mock_sess_123')
+    assert response.status_code == 200
+    assert response.json()['status'] == 'paid'
+
+
+@pytest.mark.django_db
+def test_stripe_cancel_view(client):
+    response = client.get('/api/stripe/cancel/?referer_base=http://localhost:8000')
+    assert response.status_code == 302
+    assert 'payment=cancelled' in response['Location']
+
