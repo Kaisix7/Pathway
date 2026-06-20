@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 
 import 'analytics.dart';
 import 'models.dart';
 import 'gemini_service.dart';
+import 'api_service.dart';
 
 class AppState extends ChangeNotifier {
   bool authed = false;
@@ -184,16 +187,36 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loginAdmin(String email) async {
+  Future<void> loginAdmin(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/login/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'Login failed');
+    }
+
+    final data = jsonDecode(response.body);
+    if (data['user']['role'] != 'admin') {
+      throw Exception('Access denied. Admin role required.');
+    }
+
     savedEmail = email;
     role = UserRole.admin;
+    authToken = data['token'];
     authed = true;
-    
+
     await Analytics.trackLogin(email, source: 'admin');
     await Analytics.identify(email, properties: {
       'role': 'admin',
     });
-    
+
     notifyListeners();
   }
 

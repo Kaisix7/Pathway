@@ -90,6 +90,7 @@ class _AuthViewState extends State<AuthView> {
   final wContact = TextEditingController();
   final wCity = TextEditingController(text: 'Almaty');
   final wRole = TextEditingController(text: 'Coordinator');
+  final adminPassword = TextEditingController();
 
   Future<void> loginWithGoogle() async {
     String redirectUriParam = 'http://localhost:8000/';
@@ -202,7 +203,15 @@ class _AuthViewState extends State<AuthView> {
         _snack(context, 'Invalid email format');
         return;
       }
-      await widget.app.loginAdmin(fContact.text.trim());
+      if (adminPassword.text.isEmpty) {
+        _snack(context, 'Please enter your superuser password');
+        return;
+      }
+      try {
+        await widget.app.loginAdmin(fContact.text.trim(), adminPassword.text);
+      } catch (e) {
+        _snack(context, 'Login failed: ${e.toString().replaceAll('Exception:', '').trim()}');
+      }
       return;
     }
     if (role == UserRole.foreigner) {
@@ -303,6 +312,7 @@ class _AuthViewState extends State<AuthView> {
     wContact.dispose();
     wCity.dispose();
     wRole.dispose();
+    adminPassword.dispose();
     super.dispose();
   }
 
@@ -717,6 +727,16 @@ class _AuthViewState extends State<AuthView> {
         decoration: const InputDecoration(
           hintText: 'Enter your superuser email',
           prefixIcon: Icon(Icons.email_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
+      _label('Superuser Password'),
+      TextField(
+        controller: adminPassword,
+        obscureText: true,
+        decoration: const InputDecoration(
+          hintText: 'Enter your superuser password',
+          prefixIcon: Icon(Icons.lock_outline),
         ),
       ),
       const SizedBox(height: 16),
@@ -3235,7 +3255,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       _error = null;
     });
     try {
-      final response = await http.get(Uri.parse('${ApiService.baseUrl}/analytics/kpi/'));
+      final response = await http.get(
+        Uri.parse('${ApiService.baseUrl}/analytics/kpi/'),
+        headers: {
+          if (widget.app.authToken != null)
+            'Authorization': 'Bearer ${widget.app.authToken}',
+        },
+      );
       if (response.statusCode == 200) {
         setState(() {
           _kpis = jsonDecode(response.body);

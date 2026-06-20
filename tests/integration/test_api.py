@@ -336,18 +336,32 @@ def test_stripe_cancel_view(client):
 @pytest.mark.django_db
 def test_kpi_analytics_endpoint(client):
     from core.models import AppUser, AppEvent
+    from core.security import create_token
+    
+    admin_user = AppUser.objects.create(name='Admin User', email='admin@example.com', role='admin')
     user = AppUser.objects.create(name='Premium User', email='premium@example.com', plan='premium')
     AppUser.objects.create(name='Free User', email='free@example.com', plan='free')
     
     AppEvent.objects.create(event_name='app_open', user_email='premium@example.com')
     AppEvent.objects.create(event_name='payment failed', user_email='free@example.com')
     
+    # 1. Anonymous request should fail with 401
     response = client.get('/api/analytics/kpi/')
+    assert response.status_code == 401
+    
+    # 2. Non-admin request should fail with 403
+    normal_token = create_token(user)
+    response = client.get('/api/analytics/kpi/', HTTP_AUTHORIZATION=f'Bearer {normal_token}')
+    assert response.status_code == 403
+    
+    # 3. Admin request should succeed with 200
+    admin_token = create_token(admin_user)
+    response = client.get('/api/analytics/kpi/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
     assert response.status_code == 200
     data = response.json()
-    assert data['registered_users'] == 2
+    assert data['registered_users'] == 3  # premium + free + admin
     assert data['premium_users'] == 1
-    assert data['conversion_rate_percent'] == 50.0
+    assert data['conversion_rate_percent'] == 33.33
     assert data['mrr_usd'] == 24.99
     assert data['churn_rate_percent'] == 100.0
 

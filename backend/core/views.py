@@ -719,15 +719,43 @@ def login(request):
     if _is_rate_limited(request, 'login'):
         return JsonResponse({'error': 'rate limit exceeded'}, status=429)
 
-    user = AppUser.objects.filter(email=email).first()
-    if not user:
-        logger.warning('security_event=failed_login email=%s ip=%s reason=user_not_found', email, _client_ip(request))
-        return JsonResponse({'error': 'user not found'}, status=404)
+    from django.contrib.auth import authenticate
+    from django.contrib.auth.models import User
+
+    # Check if there is a Django User with this email or username
+    django_user = User.objects.filter(email=email).first()
+    if not django_user:
+        django_user = User.objects.filter(username=email).first()
 
     password = data.get('password', '')
-    if not verify_password(password, user.password_hash):
-        logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
-        return JsonResponse({'error': 'invalid credentials'}, status=401)
+
+    if django_user and (django_user.is_superuser or django_user.is_staff):
+        authenticated_user = authenticate(username=django_user.username, password=password)
+        if authenticated_user:
+            # Sync to AppUser as admin role
+            user, created = AppUser.objects.get_or_create(
+                email=django_user.email or django_user.username,
+                defaults={
+                    'name': django_user.get_full_name() or django_user.username,
+                    'role': AppUser.ROLE_ADMIN,
+                    'plan': 'premium',
+                }
+            )
+            if not created and user.role != AppUser.ROLE_ADMIN:
+                user.role = AppUser.ROLE_ADMIN
+                user.save()
+        else:
+            logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
+            return JsonResponse({'error': 'invalid credentials'}, status=401)
+    else:
+        user = AppUser.objects.filter(email=email).first()
+        if not user:
+            logger.warning('security_event=failed_login email=%s ip=%s reason=user_not_found', email, _client_ip(request))
+            return JsonResponse({'error': 'user not found'}, status=404)
+
+        if not verify_password(password, user.password_hash):
+            logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
+            return JsonResponse({'error': 'invalid credentials'}, status=401)
 
     AppEvent.objects.create(
         event_name='login',
@@ -984,6 +1012,9 @@ def stripe_cancel(request):
 from django.shortcuts import render
 
 def kpi_metrics(request):
+    user, error = require_admin(request)
+    if error:
+        return error
     kpis = _calculate_kpi_values()
     return JsonResponse(kpis)
 
