@@ -98,7 +98,7 @@ class AppState extends ChangeNotifier {
         'createdAt': DateTime.now(),
       });
     } catch (e) {
-      print('FIREBASE ERROR: $e');
+      debugPrint('FIREBASE ERROR: $e');
     }
 
     await Analytics.trackLogin(email, source: 'google');
@@ -139,10 +139,10 @@ class AppState extends ChangeNotifier {
         'createdAt': DateTime.now(),
       });
 
-      print("USER SAVED TO FIREBASE");
+      debugPrint("USER SAVED TO FIREBASE");
     } catch (e) {
-      print("FIREBASE ERROR:");
-      print(e);
+      debugPrint("FIREBASE ERROR:");
+      debugPrint(e.toString());
     }
 
     await Analytics.trackSignUp(

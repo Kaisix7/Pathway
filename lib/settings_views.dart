@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'api_service.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -25,7 +26,7 @@ class _SettingsViewState extends State<SettingsView> {
   };
 
   void loginWithGoogle() async {
-    final url = Uri.parse('http://127.0.0.1:8000/api/oauth/google/');
+    final url = Uri.parse('${ApiService.baseUrl}/oauth/google/');
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);

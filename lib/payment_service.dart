@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'api_service.dart';
 
@@ -83,7 +84,7 @@ class PaymentService {
 
       throw Exception('Invalid server response: Status ${response.statusCode}');
     } catch (e) {
-      print('PaymentService error: $e');
+      debugPrint('PaymentService error: $e');
       rethrow;
     } finally {
       client.close();
@@ -116,7 +117,7 @@ class PaymentService {
         isPaid: true,
       );
     } catch (e) {
-      print('verifyPayment error: $e');
+      debugPrint('verifyPayment error: $e');
       return PaymentVerification(
         status: 'error',
         isPaid: false,

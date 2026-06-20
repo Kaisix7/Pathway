@@ -55,13 +55,13 @@ class _PathwayAppState extends State<PathwayApp> {
             useMaterial3: true,
             brightness: Brightness.dark,
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6366F1), // Indigo
-              secondary: Color(0xFF00BFA6), // Teal
-              surface: Color(0xFF1E293B), // Slate 800
-              onPrimary: Colors.white,
-              onSecondary: Colors.black,
+              primary: Color(0xFF9FE870), // Lime Green
+              secondary: Color(0xFF9FE870), // Lime Green
+              surface: Color(0xFF1E3F02), // Forest Green surface
+              onPrimary: Color(0xFF163300), // Dark Green text
+              onSecondary: Color(0xFF163300), // Dark Green text
             ),
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            scaffoldBackgroundColor: const Color(0xFF163300), // Forest Green background
             textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
               headlineMedium: GoogleFonts.outfit(
                 textStyle: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
@@ -71,7 +71,7 @@ class _PathwayAppState extends State<PathwayApp> {
               ),
             ),
             appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF0F172A),
+              backgroundColor: Color(0xFF163300),
               elevation: 0,
               centerTitle: false,
               titleTextStyle: TextStyle(
@@ -81,23 +81,24 @@ class _PathwayAppState extends State<PathwayApp> {
                 letterSpacing: 0.5,
               ),
             ),
-            cardTheme: CardTheme(
-              color: const Color(0xFF1E293B),
+            cardTheme: CardThemeData(
+              color: const Color(0xFF1E3F02),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: Color(0xFF244D03), width: 1),
               ),
               elevation: 4,
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: const Color(0xFF1E293B),
+              fillColor: const Color(0xFF1E3F02),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                borderSide: const BorderSide(color: Color(0xFF9FE870), width: 1.5),
               ),
               labelStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.w600),
             ),

@@ -36,9 +36,9 @@ class _AirportViewState extends State<AirportView> {
     );
 
     if (response.statusCode == 200) {
-      print("Создано");
+      debugPrint("Создано");
     } else {
-      print("Ошибка: ${response.body}");
+      debugPrint("Ошибка: ${response.body}");
     }
   }
 
@@ -52,7 +52,7 @@ class _AirportViewState extends State<AirportView> {
         orders = jsonDecode(response.body);
       });
     } else {
-      print("Ошибка загрузки");
+      debugPrint("Ошибка загрузки");
     }
   }
 

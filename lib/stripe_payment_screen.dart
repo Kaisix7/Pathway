@@ -4,6 +4,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'payment_service.dart';
 import 'state.dart';
 import 'models.dart';
+import 'analytics.dart';
 
 /// A premium, beautiful payment screen integrating Stripe.
 class StripePaymentScreen extends StatefulWidget {
@@ -60,6 +61,9 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
         userEmail: widget.app.savedEmail,
       );
 
+      // Track checkout started analytics event
+      Analytics.trackCheckoutStarted(widget.app.savedEmail, amount: 24.99);
+
       if (stripeResponse.isRedirect && stripeResponse.url != null) {
         final uri = Uri.parse(stripeResponse.url!);
         _launchedUrl = stripeResponse.url;
@@ -90,6 +94,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
         throw Exception('Server returned empty Stripe session credentials.');
       }
     } catch (e) {
+      Analytics.trackPaymentFailed(widget.app.savedEmail, error: e.toString());
       setState(() {
         _isLoading = false;
         _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -112,6 +117,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
       await Stripe.instance.presentPaymentSheet();
       _handlePaymentSuccess('SDK Payment Successful');
     } catch (e) {
+      Analytics.trackPaymentFailed(widget.app.savedEmail, error: e.toString());
       setState(() {
         if (e is StripeException) {
           _errorMessage = 'Payment cancelled: ${e.error.localizedMessage}';
@@ -138,6 +144,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
       if (verification.isPaid) {
         _handlePaymentSuccess('Redirect Checkout Successful');
       } else {
+        Analytics.trackPaymentFailed(widget.app.savedEmail, error: verification.error ?? 'Verification failed');
         setState(() {
           _errorMessage = verification.error ?? 'Payment verification failed. Please try again.';
         });
@@ -149,6 +156,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
 
   void _handlePaymentSuccess(String source) {
     widget.app.setPlan(Plan.premium); // Upgrade the user to premium plan
+    Analytics.trackPaymentCompleted(widget.app.savedEmail, amount: 24.99);
     setState(() {
       _successMessage = 'Payment Successful! Thank you for subscribing.';
       _errorMessage = null;
@@ -161,7 +169,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Dark mode background
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -198,15 +206,16 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF6366F1), Color(0xFF4F46E5), Color(0xFF312E81)],
+                colors: [Theme.of(context).colorScheme.surface, const Color(0xFF112600)],
               ),
               borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 )
@@ -289,9 +298,9 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
             height: 60,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00BFA6),
-                foregroundColor: Colors.black,
-                shadowColor: const Color(0xFF00BFA6).withOpacity(0.4),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.4),
                 elevation: 12,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -352,12 +361,12 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF4F46E5).withOpacity(0.15),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.open_in_browser_rounded,
-              color: Color(0xFF6366F1),
+              color: Theme.of(context).colorScheme.primary,
               size: 40,
             ),
           ),
@@ -403,8 +412,8 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
                   height: 54,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BFA6),
-                      foregroundColor: Colors.black,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -448,13 +457,13 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
             Container(
               width: 90,
               height: 90,
-              decoration: const BoxDecoration(
-                color: Color(0xFF10B981),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.check,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onPrimary,
                 size: 50,
               ),
             ),
@@ -572,8 +581,8 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BFA6),
-                      foregroundColor: Colors.black,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -599,7 +608,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF00BFA6), size: 20),
+          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

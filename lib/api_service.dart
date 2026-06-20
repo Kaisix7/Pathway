@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:universal_html/html.dart' as html;
 
 import 'models.dart';
 
@@ -9,20 +10,29 @@ class ApiService {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
 
   static String get baseUrl {
-    if (_configuredBaseUrl.isNotEmpty) {
-      return _configuredBaseUrl;
+    String url = _configuredBaseUrl;
+    if (url.isEmpty) {
+      if (kIsWeb) {
+        final origin = html.window.location.origin;
+        if (origin.contains('localhost') || origin.contains('127.0.0.1')) {
+          url = 'http://localhost:8000/api';
+        } else {
+          url = '$origin/api';
+        }
+      } else {
+        switch (defaultTargetPlatform) {
+          case TargetPlatform.android:
+            url = 'http://10.0.2.2:8000/api';
+            break;
+          default:
+            url = 'http://localhost:8000/api';
+        }
+      }
     }
-
-    if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
+    if (kIsWeb && url.contains('127.0.0.1')) {
+      url = url.replaceAll('127.0.0.1', 'localhost');
     }
-
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:8000/api';
-      default:
-        return 'http://127.0.0.1:8000/api';
-    }
+    return url;
   }
 
   /// Generate a unique idempotency key for payment requests
@@ -46,17 +56,17 @@ class ApiService {
         }),
       );
 
-      print(response.statusCode);
+      debugPrint(response.statusCode.toString());
 
       if (response.statusCode != 200) {
-        print(response.body);
+        debugPrint(response.body);
         return false;
       }
 
       return true;
     } catch (e, stackTrace) {
-      print('registerUser error: $e');
-      print(stackTrace);
+      debugPrint('registerUser error: $e');
+      debugPrint(stackTrace.toString());
       rethrow;
     }
   }
@@ -79,13 +89,13 @@ class ApiService {
       final response = await http.get(uri.replace(queryParameters: queryParams));
 
       if (response.statusCode != 200) {
-        print('loginWithGoogle error: ${response.body}');
+        debugPrint('loginWithGoogle error: ${response.body}');
         return null;
       }
 
       return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (e) {
-      print('loginWithGoogle error: $e');
+      debugPrint('loginWithGoogle error: $e');
       return null;
     }
   }
@@ -126,18 +136,18 @@ class ApiService {
         }),
       );
 
-      print(response.statusCode);
+      debugPrint(response.statusCode.toString());
 
       if (response.statusCode != 200) {
-        print(response.body);
+        debugPrint(response.body);
         return null;
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return _mapOrder(data['order'] as Map<String, dynamic>);
     } catch (e, stackTrace) {
-      print('createAirportOrder error: $e');
-      print(stackTrace);
+      debugPrint('createAirportOrder error: $e');
+      debugPrint(stackTrace.toString());
       rethrow;
     }
   }
@@ -168,17 +178,17 @@ class ApiService {
         }),
       );
 
-      print(response.statusCode);
+      debugPrint(response.statusCode.toString());
 
       if (response.statusCode != 200) {
-        print(response.body);
+        debugPrint(response.body);
         return false;
       }
 
       return true;
     } catch (e, stackTrace) {
-      print('createServiceOrder error: $e');
-      print(stackTrace);
+      debugPrint('createServiceOrder error: $e');
+      debugPrint(stackTrace.toString());
       rethrow;
     }
   }
@@ -190,18 +200,18 @@ class ApiService {
       );
       final response = await http.get(uri);
 
-      print(response.statusCode);
+      debugPrint(response.statusCode.toString());
 
       if (response.statusCode != 200) {
-        print(response.body);
+        debugPrint(response.body);
         throw Exception('Failed to load orders');
       }
 
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((item) => _mapOrder(item as Map<String, dynamic>)).toList();
     } catch (e, stackTrace) {
-      print('fetchOrders error: $e');
-      print(stackTrace);
+      debugPrint('fetchOrders error: $e');
+      debugPrint(stackTrace.toString());
       rethrow;
     }
   }
@@ -218,18 +228,18 @@ class ApiService {
         },
       );
 
-      print(response.statusCode);
+      debugPrint(response.statusCode.toString());
 
       if (response.statusCode != 200) {
-        print(response.body);
+        debugPrint(response.body);
         return null;
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return _mapOrder(data['order'] as Map<String, dynamic>);
     } catch (e, stackTrace) {
-      print('payOrder error: $e');
-      print(stackTrace);
+      debugPrint('payOrder error: $e');
+      debugPrint(stackTrace.toString());
       rethrow;
     }
   }
@@ -246,13 +256,13 @@ class ApiService {
       );
 
       if (response.statusCode != 200) {
-        print('verifyPaymentSession error: ${response.body}');
+        debugPrint('verifyPaymentSession error: ${response.body}');
         return null;
       }
 
       return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (e) {
-      print('verifyPaymentSession error: $e');
+      debugPrint('verifyPaymentSession error: $e');
       return null;
     }
   }
@@ -265,7 +275,7 @@ class ApiService {
       final order = orders.where((o) => o.id == 'api_$numericId').firstOrNull;
       return order?.status;
     } catch (e) {
-      print('getPaymentStatus error: $e');
+      debugPrint('getPaymentStatus error: $e');
       return null;
     }
   }
