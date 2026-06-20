@@ -1,9 +1,8 @@
-services:
-  # A PostgreSQL database
-  - type: db
-    name: pathway-db
-    ipAllowList: [] # Only allow internal connections
+databases:
+  - name: pathway-db
+    plan: free
 
+services:
   # Django Web Service
   - type: web
     name: pathway-backend
