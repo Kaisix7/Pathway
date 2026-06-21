@@ -332,15 +332,14 @@ class _AuthViewState extends State<AuthView> {
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2), width: 1.5),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 68,
+                        height: 68,
+                        fit: BoxFit.cover,
                       ),
-                      child: Icon(Icons.public, color: Theme.of(context).colorScheme.primary, size: 32),
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -953,15 +952,13 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: 14,
       title: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00BFA6),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Center(
-              child: Text('P', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/logo.png',
+              width: 42,
+              height: 42,
+              fit: BoxFit.cover,
             ),
           ),
           const SizedBox(width: 12),
@@ -1038,12 +1035,15 @@ class HomeView extends StatelessWidget {
         trailing: CircleAvatar(
           radius: 18,
           backgroundColor: const Color(0xFFDEF8F3),
-          child: Text(
-            app.role == UserRole.worker
-                ? (app.workerRole.isEmpty ? 'W' : app.workerRole.characters.first.toUpperCase())
-                : (app.firstName.isEmpty ? 'U' : app.firstName.characters.first.toUpperCase()),
-            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6)),
-          ),
+          backgroundImage: app.avatarUrl.isNotEmpty ? NetworkImage(app.avatarUrl) : null,
+          child: app.avatarUrl.isEmpty
+              ? Text(
+                  app.role == UserRole.worker
+                      ? (app.workerRole.isEmpty ? 'W' : app.workerRole.characters.first.toUpperCase())
+                      : (app.firstName.isEmpty ? 'U' : app.firstName.characters.first.toUpperCase()),
+                  style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6)),
+                )
+              : null,
         ),
       ),
       body: ListView(
@@ -1717,7 +1717,29 @@ class AccountView extends StatelessWidget {
         children: [
           _card(
             child: ListTile(
-              title: Text(name.isEmpty ? 'User' : name, style: const TextStyle(fontWeight: FontWeight.w900)),
+              onTap: () => _showEditProfileBottomSheet(context),
+              leading: CircleAvatar(
+                radius: 24,
+                backgroundColor: const Color(0xFFDEF8F3),
+                backgroundImage: app.avatarUrl.isNotEmpty ? NetworkImage(app.avatarUrl) : null,
+                child: app.avatarUrl.isEmpty
+                    ? Text(
+                        app.role == UserRole.worker
+                            ? (app.workerRole.isEmpty ? 'W' : app.workerRole.characters.first.toUpperCase())
+                            : (app.firstName.isEmpty ? 'U' : app.firstName.characters.first.toUpperCase()),
+                        style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6), fontSize: 20),
+                      )
+                    : null,
+              ),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(name.isEmpty ? 'User' : name, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
+                ],
+              ),
               subtitle: Text(
                 app.role == UserRole.worker
                     ? 'Contact: $contact\nPlan: ${planLabel(app.plan)}'
@@ -1882,6 +1904,201 @@ class AccountView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showEditProfileBottomSheet(BuildContext context) {
+    final firstCtrl = TextEditingController(text: app.role == UserRole.worker ? app.workerRole : app.firstName);
+    final lastCtrl = TextEditingController(text: app.role == UserRole.worker ? app.workerCity : app.lastName);
+    final urlCtrl = TextEditingController(text: app.avatarUrl);
+
+    final presetEmojis = ['👨‍🚀', '👩‍💻', '🦊', '🦁', '🦉', '🐱', '🐼', '🦖', '🦄', '🐨'];
+    final emojiMap = {
+      '👨‍🚀': 'https://api.dicebear.com/7.x/adventurer/png?seed=astronaut',
+      '👩‍💻': 'https://api.dicebear.com/7.x/adventurer/png?seed=developer',
+      '🦊': 'https://api.dicebear.com/7.x/bottts/png?seed=fox',
+      '🦁': 'https://api.dicebear.com/7.x/bottts/png?seed=lion',
+      '🦉': 'https://api.dicebear.com/7.x/bottts/png?seed=owl',
+      '🐱': 'https://api.dicebear.com/7.x/bottts/png?seed=cat',
+      '🐼': 'https://api.dicebear.com/7.x/bottts/png?seed=panda',
+      '🦖': 'https://api.dicebear.com/7.x/bottts/png?seed=dino',
+      '🦄': 'https://api.dicebear.com/7.x/bottts/png?seed=unicorn',
+      '🐨': 'https://api.dicebear.com/7.x/bottts/png?seed=koala',
+    };
+
+    String selectedAvatar = app.avatarUrl;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF163300),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      app.role == UserRole.worker ? 'Edit Worker Profile' : 'Edit Profile',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      app.role == UserRole.worker ? 'ROLE' : 'FIRST NAME',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: firstCtrl,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        hintText: app.role == UserRole.worker ? 'Enter role' : 'Enter first name',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      app.role == UserRole.worker ? 'CITY' : 'LAST NAME',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: lastCtrl,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        hintText: app.role == UserRole.worker ? 'Enter city' : 'Enter last name',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'CHOOSE AVATAR PRESET',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 56,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: presetEmojis.map((emoji) {
+                          final url = emojiMap[emoji]!;
+                          final isSelected = selectedAvatar == url;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 10.0),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  selectedAvatar = url;
+                                  urlCtrl.text = url;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(28),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF9FE870) : Colors.transparent,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: Colors.white.withOpacity(0.12),
+                                  child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'CUSTOM AVATAR IMAGE URL',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: urlCtrl,
+                      onChanged: (val) {
+                        setState(() {
+                          selectedAvatar = val.trim();
+                        });
+                      },
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        hintText: 'Paste custom avatar image URL',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9FE870),
+                          foregroundColor: const Color(0xFF163300),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        ),
+                        onPressed: () {
+                          if (app.role == UserRole.worker) {
+                            app.workerRole = firstCtrl.text.trim();
+                            app.workerCity = lastCtrl.text.trim();
+                            app.avatarUrl = selectedAvatar.trim();
+                            app.notifyListeners();
+                          } else {
+                            app.updateProfile(
+                              first: firstCtrl.text,
+                              last: lastCtrl.text,
+                              avatar: selectedAvatar,
+                            );
+                          }
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -3063,47 +3280,201 @@ class _PaymentsViewState extends State<PaymentsView> {
   }
 }
 
-class WorkerClientsView extends StatelessWidget {
+class WorkerClientsView extends StatefulWidget {
   final AppState app;
   const WorkerClientsView({super.key, required this.app});
 
   @override
-  Widget build(BuildContext context) {
-    final demo = [
-      {'name': 'Alice Smith', 'nationality': 'USA', 'visa': '2026-03-15', 'iin': 'Pending'},
-      {'name': 'Bob Johnson', 'nationality': 'UK', 'visa': '2026-02-28', 'iin': 'Booked'},
-      {'name': 'Charlie Brown', 'nationality': 'Canada', 'visa': '2026-05-10', 'iin': 'Done'},
-    ];
+  State<WorkerClientsView> createState() => _WorkerClientsViewState();
+}
 
+class _WorkerClientsViewState extends State<WorkerClientsView> {
+  List<AppOrder> _orders = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = await ApiService.fetchOrders(userEmail: '');
+      setState(() {
+        _orders = list;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _completeOrder(AppOrder order) async {
+    try {
+      final updated = await ApiService.payOrder(order.id);
+      if (updated != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Order marked as Completed (Done) successfully!')),
+        );
+        _fetchOrders();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update order status.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating order: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Worker: Clients')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xFF1DB7FF).withOpacity(0.10), borderRadius: BorderRadius.circular(22)),
-            child: const Text('MVP demo list. Next step: real backend + CRM dashboard.', style: TextStyle(fontWeight: FontWeight.w800)),
+      backgroundColor: const Color(0xFFF1F5F9),
+      appBar: AppBar(
+        title: const Text('Worker: Client Orders', style: TextStyle(fontWeight: FontWeight.w900)),
+        backgroundColor: const Color(0xFF163300),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchOrders,
           ),
-          const SizedBox(height: 12),
-          for (final c in demo)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                tileColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF1DB7FF).withOpacity(0.14),
-                  child: Text(c['name']!.substring(0, 1), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1DB7FF))),
-                ),
-                title: Text(c['name']!, style: const TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: Text('Nationality: ${c['nationality']}\nVisa: ${c['visa']} • IIN: ${c['iin']}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
-                trailing: const Icon(Icons.chevron_right_rounded),
-              ),
-            ),
         ],
       ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9FE870)))
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                        const SizedBox(height: 10),
+                        Text('Error loading orders: $_error', textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _fetchOrders,
+                          child: const Text('Try Again'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _orders.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.assignment_turned_in_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No active orders found.',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black.withOpacity(0.45)),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(18),
+                      itemCount: _orders.length,
+                      itemBuilder: (context, index) {
+                        final order = _orders[index];
+                        final isCompleted = order.status.toLowerCase() == 'done';
+                        
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          elevation: 0,
+                          color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: isCompleted
+                                            ? const Color(0xFFE8F5E9)
+                                            : const Color(0xFFFFF3E0),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        order.status.toUpperCase(),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 11,
+                                          color: isCompleted
+                                              ? const Color(0xFF2E7D32)
+                                              : const Color(0xFFE65100),
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      'Order ${order.id}',
+                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  order.title,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.black.withOpacity(0.05)),
+                                  ),
+                                  child: Text(
+                                    order.details,
+                                    style: const TextStyle(height: 1.4, color: Colors.black87, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                                if (!isCompleted) ...[
+                                  const SizedBox(height: 14),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 44,
+                                    child: FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(0xFF163300),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _completeOrder(order),
+                                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                                      label: const Text('Mark as Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 }

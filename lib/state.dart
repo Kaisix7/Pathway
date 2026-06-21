@@ -26,6 +26,7 @@ class AppState extends ChangeNotifier {
   String contact = '';
   String nationality = '';
   String nationalityCode = 'US';
+  String avatarUrl = '';
 
   String workerIin = '';
   String workerCity = 'Almaty';
@@ -234,6 +235,7 @@ class AppState extends ChangeNotifier {
     nationality = '';
     nationalityCode = 'US';
     savedEmail = '';
+    avatarUrl = '';
     
     // Clear worker data
     workerIin = '';
@@ -268,6 +270,13 @@ class AppState extends ChangeNotifier {
       TaskItem(title: 'University documents'),
     ]);
     
+    notifyListeners();
+  }
+
+  void updateProfile({required String first, required String last, required String avatar}) {
+    firstName = first.trim();
+    lastName = last.trim();
+    avatarUrl = avatar.trim();
     notifyListeners();
   }
 
