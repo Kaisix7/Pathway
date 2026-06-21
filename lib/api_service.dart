@@ -45,6 +45,10 @@ class ApiService {
   static Future<bool> registerUser({
     required String name,
     required String email,
+    String company = '',
+    String utmSource = '',
+    String utmMedium = '',
+    String utmCampaign = '',
   }) async {
     try {
       final response = await http.post(
@@ -53,6 +57,10 @@ class ApiService {
         body: jsonEncode({
           'name': name,
           'email': email,
+          'company': company,
+          'utm_source': utmSource,
+          'utm_medium': utmMedium,
+          'utm_campaign': utmCampaign,
         }),
       );
 

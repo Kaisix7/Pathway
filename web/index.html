@@ -53,6 +53,32 @@
       }
       return false;
     };
+
+    // Extract UTMs and cache them in localStorage
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(param => {
+        const val = urlParams.get(param);
+        if (val) localStorage.setItem('cached_' + param, val);
+      });
+    } catch (e) {
+      console.error('Error caching UTM parameters:', e);
+    }
+
+    // JS interop getter for Flutter
+    window.getStoredUtmParameters = function() {
+      try {
+        const utms = {};
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(param => {
+          const val = localStorage.getItem('cached_' + param);
+          if (val) utms[param] = val;
+        });
+        return JSON.stringify(utms);
+      } catch (e) {
+        console.error('Error reading UTM parameters from localStorage:', e);
+        return '{}';
+      }
+    };
   </script>
 
   <!-- PostHog Web (optional — for session recording on web) -->

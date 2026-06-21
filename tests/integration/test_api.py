@@ -366,3 +366,98 @@ def test_kpi_analytics_endpoint(client):
     assert data['churn_rate_percent'] == 100.0
 
 
+@pytest.mark.django_db
+def test_register_saves_and_serializes_company_and_utms(client, settings):
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    response = client.post(
+        '/api/register/',
+        data=json.dumps({
+            'name': 'B2B Client',
+            'email': 'b2b@company.com',
+            'company': 'Acme Corp',
+            'utm_source': 'google',
+            'utm_medium': 'cpc',
+            'utm_campaign': 'black_friday'
+        }),
+        content_type='application/json',
+    )
+
+    assert response.status_code == 200
+    user = AppUser.objects.get(email='b2b@company.com')
+    assert user.company == 'Acme Corp'
+    assert user.utm_source == 'google'
+    assert user.utm_medium == 'cpc'
+    assert user.utm_campaign == 'black_friday'
+
+    # Check serialized response payload
+    user_payload = response.json()['user']
+    assert user_payload['company'] == 'Acme Corp'
+    assert user_payload['utm_source'] == 'google'
+    assert user_payload['utm_medium'] == 'cpc'
+    assert user_payload['utm_campaign'] == 'black_friday'
+
+    # Check that AppEvent properties has company and UTM details
+    signup_event = AppEvent.objects.get(event_name='user signed up', user_email='b2b@company.com')
+    assert signup_event.properties['company'] == 'Acme Corp'
+    assert signup_event.properties['utm_source'] == 'google'
+    assert signup_event.properties['utm_medium'] == 'cpc'
+    assert signup_event.properties['utm_campaign'] == 'black_friday'
+    assert signup_event.properties['$groups'] == {'company': 'Acme Corp'}
+    assert signup_event.properties['$utm_source'] == 'google'
+    assert signup_event.properties['$utm_medium'] == 'cpc'
+    assert signup_event.properties['$utm_campaign'] == 'black_friday'
+
+
+@pytest.mark.django_db
+def test_login_attaches_groups_and_triggers_identify(client):
+    AppUser.objects.create(
+        name='B2B User',
+        email='login_b2b@company.com',
+        company='Acme Corp'
+    )
+
+    response = client.post(
+        '/api/login/',
+        data=json.dumps({'email': 'login_b2b@company.com'}),
+        content_type='application/json',
+    )
+
+    assert response.status_code == 200
+    login_event = AppEvent.objects.get(event_name='login', user_email='login_b2b@company.com')
+    assert login_event.properties['$groups'] == {'company': 'Acme Corp'}
+
+
+@pytest.mark.django_db
+def test_stripe_success_view_sends_revenue_and_groups_to_posthog(client, monkeypatch):
+    import stripe
+    from django.conf import settings
+
+    monkeypatch.setattr(settings, 'STRIPE_SECRET_KEY', 'mock_secret_key')
+
+    # Create B2B user first
+    AppUser.objects.create(
+        name='Paying Client',
+        email='paying@company.com',
+        company='Acme Corp'
+    )
+
+    class MockSession:
+        id = 'mock_sess_revenue_123'
+        payment_status = 'paid'
+        amount_total = 2499
+        metadata = {'user_email': 'paying@company.com', 'referer_base': 'http://localhost:8000'}
+
+    monkeypatch.setattr(stripe.checkout.Session, 'retrieve', lambda session_id: MockSession())
+
+    response = client.get('/api/stripe/success/?session_id=mock_sess_revenue_123')
+    assert response.status_code == 302
+    assert 'payment=success' in response['Location']
+
+    # Check AppEvent properties
+    payment_event = AppEvent.objects.get(event_name='payment completed', user_email='paying@company.com')
+    assert payment_event.properties['$amt'] == 24.99
+    assert payment_event.properties['$currency'] == 'USD'
+    assert payment_event.properties['$groups'] == {'company': 'Acme Corp'}
+
+
+

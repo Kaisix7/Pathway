@@ -85,11 +85,13 @@ class _AuthViewState extends State<AuthView> {
   final lName = TextEditingController();
   final fContact = TextEditingController();
   final fNationality = TextEditingController();
+  final fCompany = TextEditingController();
 
   final wIin = TextEditingController();
   final wContact = TextEditingController();
   final wCity = TextEditingController(text: 'Almaty');
   final wRole = TextEditingController(text: 'Coordinator');
+  final wCompany = TextEditingController();
   final adminPassword = TextEditingController();
 
   Future<void> loginWithGoogle() async {
@@ -246,11 +248,14 @@ class _AuthViewState extends State<AuthView> {
       }
 
       try {
-        // Basic onboarding flow stays inside existing screens:
-        // registration -> Services -> Airport -> order creation.
+        final utms = Analytics.getStoredUtms();
         final registered = await ApiService.registerUser(
           name: '${fName.text.trim()} ${lName.text.trim()}',
           email: fContact.text.trim(),
+          company: fCompany.text.trim(),
+          utmSource: utms['utm_source'] ?? '',
+          utmMedium: utms['utm_medium'] ?? '',
+          utmCampaign: utms['utm_campaign'] ?? '',
         );
 
         if (!registered) {
@@ -265,6 +270,10 @@ class _AuthViewState extends State<AuthView> {
           contact: fContact.text,
           nationality: fNationality.text,
           nationalityCode: selectedCountryCode,
+          company: fCompany.text.trim(),
+          utmSource: utms['utm_source'] ?? '',
+          utmMedium: utms['utm_medium'] ?? '',
+          utmCampaign: utms['utm_campaign'] ?? '',
         );
         return;
       } catch (e) {
@@ -295,6 +304,7 @@ class _AuthViewState extends State<AuthView> {
       contact: wContact.text,
       city: wCity.text,
       roleName: wRole.text,
+      company: wCompany.text,
     );
   }
 
@@ -304,10 +314,12 @@ class _AuthViewState extends State<AuthView> {
     lName.dispose();
     fContact.dispose();
     fNationality.dispose();
+    fCompany.dispose();
     wIin.dispose();
     wContact.dispose();
     wCity.dispose();
     wRole.dispose();
+    wCompany.dispose();
     adminPassword.dispose();
     super.dispose();
   }
@@ -557,6 +569,16 @@ class _AuthViewState extends State<AuthView> {
         ),
       ),
       const SizedBox(height: 16),
+      _label('Company/Organization Name (Optional)'),
+      TextField(
+        controller: fCompany,
+        textInputAction: TextInputAction.next,
+        decoration: const InputDecoration(
+          hintText: 'e.g. Acme Corp',
+          prefixIcon: Icon(Icons.business_outlined),
+        ),
+      ),
+      const SizedBox(height: 16),
       _label('Country'),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -698,6 +720,15 @@ class _AuthViewState extends State<AuthView> {
         controller: wRole,
         decoration: const InputDecoration(
           prefixIcon: Icon(Icons.work_outline),
+        ),
+      ),
+      const SizedBox(height: 16),
+      _label('Company/Organization Name (Optional)'),
+      TextField(
+        controller: wCompany,
+        decoration: const InputDecoration(
+          hintText: 'e.g. Acme Corp',
+          prefixIcon: Icon(Icons.business_outlined),
         ),
       ),
       const SizedBox(height: 16),
@@ -1911,6 +1942,7 @@ class AccountView extends StatelessWidget {
     final firstCtrl = TextEditingController(text: app.role == UserRole.worker ? app.workerRole : app.firstName);
     final lastCtrl = TextEditingController(text: app.role == UserRole.worker ? app.workerCity : app.lastName);
     final urlCtrl = TextEditingController(text: app.avatarUrl);
+    final companyCtrl = TextEditingController(text: app.company);
 
     final presetEmojis = ['👨‍🚀', '👩‍💻', '🦊', '🦁', '🦉', '🐱', '🐼', '🦖', '🦄', '🐨'];
     final emojiMap = {
@@ -2000,6 +2032,23 @@ class AccountView extends StatelessWidget {
                         hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'COMPANY / ORGANIZATION NAME',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: companyCtrl,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        hintText: 'Enter company or team name',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     Text(
                       'CHOOSE AVATAR PRESET',
@@ -2078,13 +2127,19 @@ class AccountView extends StatelessWidget {
                           if (app.role == UserRole.worker) {
                             app.workerRole = firstCtrl.text.trim();
                             app.workerCity = lastCtrl.text.trim();
+                            app.company = companyCtrl.text.trim();
                             app.avatarUrl = selectedAvatar.trim();
+                            Analytics.userCompany = app.company; // Sync B2B company
+                            if (app.company.isNotEmpty && app.workerContact.isNotEmpty) {
+                              Analytics.groupIdentify(app.workerContact, app.company);
+                            }
                             app.notifyListeners();
                           } else {
                             app.updateProfile(
                               first: firstCtrl.text,
                               last: lastCtrl.text,
                               avatar: selectedAvatar,
+                              company: companyCtrl.text,
                             );
                           }
                           Navigator.pop(context);

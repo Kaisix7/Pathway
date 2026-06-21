@@ -368,6 +368,10 @@ def _user_payload(user):
         'email': user.email,
         'plan': user.plan,
         'role': user.role,
+        'company': getattr(user, 'company', ''),
+        'utm_source': getattr(user, 'utm_source', ''),
+        'utm_medium': getattr(user, 'utm_medium', ''),
+        'utm_campaign': getattr(user, 'utm_campaign', ''),
     }
 
 
@@ -767,11 +771,38 @@ def login(request):
             logger.warning('security_event=failed_login email=%s ip=%s reason=bad_password', email, _client_ip(request))
             return JsonResponse({'error': 'invalid credentials'}, status=401)
 
+    login_properties = {}
+    if user.company:
+        login_properties['$groups'] = {'company': user.company}
+        try:
+            send_posthog_event(
+                event_name='$groupidentify',
+                distinct_id=user.email,
+                properties={
+                    '$group_type': 'company',
+                    '$group_key': user.company,
+                    '$group_set': {
+                        'name': user.company,
+                    }
+                }
+            )
+        except Exception as exc:
+            logger.warning('Failed to send groupidentify event: %s', exc)
+
     AppEvent.objects.create(
         event_name='login',
         user_email=user.email,
-        properties={},
+        properties=login_properties,
     )
+
+    try:
+        send_posthog_event(
+            event_name='login',
+            distinct_id=user.email,
+            properties=login_properties,
+        )
+    except Exception as exc:
+        logger.warning('Failed to send login event: %s', exc)
 
     return JsonResponse({
         'status': 'ok',
@@ -805,6 +836,10 @@ def register(request):
             "name": data.get("name"),
             "plan": data.get("plan", "free"),
             "role": data.get("role", AppUser.ROLE_USER),
+            "company": data.get("company", ""),
+            "utm_source": data.get("utm_source", ""),
+            "utm_medium": data.get("utm_medium", ""),
+            "utm_campaign": data.get("utm_campaign", ""),
         }
         if data.get('password'):
             defaults['password_hash'] = hash_password(data.get('password'))
@@ -814,25 +849,80 @@ def register(request):
             defaults=defaults,
         )
 
-        if not created and (user.name != data.get("name") or user.plan != data.get("plan", user.plan)):
-            user.name = data.get("name")
-            user.plan = data.get("plan", user.plan)
-            update_fields = ["name", "plan"]
+        if not created:
+            updated = False
+            if user.name != data.get("name"):
+                user.name = data.get("name")
+                updated = True
+            if user.plan != data.get("plan", user.plan):
+                user.plan = data.get("plan", user.plan)
+                updated = True
+            if data.get("company") and user.company != data.get("company"):
+                user.company = data.get("company")
+                updated = True
+            if data.get("utm_source") and user.utm_source != data.get("utm_source"):
+                user.utm_source = data.get("utm_source")
+                updated = True
+            if data.get("utm_medium") and user.utm_medium != data.get("utm_medium"):
+                user.utm_medium = data.get("utm_medium")
+                updated = True
+            if data.get("utm_campaign") and user.utm_campaign != data.get("utm_campaign"):
+                user.utm_campaign = data.get("utm_campaign")
+                updated = True
             if data.get('password'):
                 user.password_hash = hash_password(data.get('password'))
-                update_fields.append('password_hash')
-            user.save(update_fields=update_fields)
+                updated = True
+            if updated:
+                user.save()
+
+        # Build properties for event tracking
+        event_properties = {
+            'name': user.name,
+            'email': user.email,
+            'company': user.company,
+            'utm_source': user.utm_source,
+            'utm_medium': user.utm_medium,
+            'utm_campaign': user.utm_campaign,
+        }
+        if user.company:
+            event_properties['$groups'] = {'company': user.company}
+        if user.utm_source:
+            event_properties['$utm_source'] = user.utm_source
+        if user.utm_medium:
+            event_properties['$utm_medium'] = user.utm_medium
+        if user.utm_campaign:
+            event_properties['$utm_campaign'] = user.utm_campaign
 
         AppEvent.objects.create(
             event_name='user signed up',
             user_email=user.email,
-            properties=mask_payload({'name': data.get('name'), 'email': data.get('email')}),
+            properties=mask_payload(event_properties),
         )
-        send_posthog_event(
-            event_name='user signed up',
-            distinct_id=user.email,
-            properties=mask_payload({'name': data.get('name'), 'email': data.get('email')}),
-        )
+
+        if user.company:
+            try:
+                send_posthog_event(
+                    event_name='$groupidentify',
+                    distinct_id=user.email,
+                    properties={
+                        '$group_type': 'company',
+                        '$group_key': user.company,
+                        '$group_set': {
+                            'name': user.company,
+                        }
+                    }
+                )
+            except Exception as exc:
+                logger.warning('Failed to send groupidentify event: %s', exc)
+
+        try:
+            send_posthog_event(
+                event_name='user signed up',
+                distinct_id=user.email,
+                properties=mask_payload(event_properties),
+            )
+        except Exception as exc:
+            logger.warning('Failed to send user signed up event to PostHog: %s', exc)
         cache_delete('metrics:v1')
         try:
             if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
@@ -953,20 +1043,34 @@ def stripe_success(request):
             )
 
         if payment_status == 'paid':
+            user = None
             if user_email:
                 AppUser.objects.filter(email=user_email).update(plan='premium')
+                user = AppUser.objects.filter(email=user_email).first()
+
+            amount_usd = float(session.amount_total or 2499) / 100.0
+
+            properties = {
+                'session_id': session_id,
+                'amount': session.amount_total,
+                '$amt': amount_usd,
+                '$currency': 'USD',
+            }
+
+            if user and user.company:
+                properties['$groups'] = {'company': user.company}
 
             AppEvent.objects.create(
                 event_name='payment completed',
                 user_email=user_email,
-                properties={'session_id': session_id, 'amount': session.amount_total}
+                properties=properties,
             )
 
             try:
                 send_posthog_event(
                     event_name='payment completed',
                     distinct_id=user_email or 'anonymous',
-                    properties={'session_id': session_id, 'amount': session.amount_total}
+                    properties=properties,
                 )
             except Exception as exc:
                 logger.warning('Failed to send PostHog event: %s', exc)
