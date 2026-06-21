@@ -20,6 +20,10 @@ class AppUser(models.Model):
     otp_code = models.CharField(max_length=6, blank=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    company = models.CharField(max_length=100, blank=True, default='')
+    utm_source = models.CharField(max_length=100, blank=True, default='')
+    utm_medium = models.CharField(max_length=100, blank=True, default='')
+    utm_campaign = models.CharField(max_length=100, blank=True, default='')
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
