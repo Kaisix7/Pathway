@@ -1013,6 +1013,19 @@ def checkout(request):
         return JsonResponse({'error': f'STRIPE ERROR: {str(e)}'}, status=500)
 
 
+def _safe_get(obj, key, default=None):
+    if obj is None:
+        return default
+    try:
+        return obj[key]
+    except (KeyError, TypeError, IndexError):
+        pass
+    try:
+        return getattr(obj, key, default)
+    except AttributeError:
+        return default
+
+
 @csrf_exempt
 def stripe_success(request):
     import stripe
@@ -1026,10 +1039,10 @@ def stripe_success(request):
     stripe.api_key = settings.STRIPE_SECRET_KEY
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        metadata = getattr(session, 'metadata', None) or {}
-        customer_details = getattr(session, 'customer_details', None) or {}
-        user_email = metadata.get('user_email') or customer_details.get('email') or ''
-        referer_base = metadata.get('referer_base') or 'http://127.0.0.1:8000'
+        metadata = getattr(session, 'metadata', None)
+        customer_details = getattr(session, 'customer_details', None)
+        user_email = _safe_get(metadata, 'user_email') or _safe_get(customer_details, 'email') or ''
+        referer_base = _safe_get(metadata, 'referer_base') or 'http://127.0.0.1:8000'
         payment_status = session.payment_status
 
         order = Order.objects.filter(order_id=session_id).first()
@@ -1098,8 +1111,8 @@ def payment_status(request):
             try:
                 session = stripe.checkout.Session.retrieve(session_id)
                 payment_status = session.payment_status
-                metadata = getattr(session, 'metadata', None) or {}
-                user_email = metadata.get('user_email') or ''
+                metadata = getattr(session, 'metadata', None)
+                user_email = _safe_get(metadata, 'user_email') or ''
 
                 order = Order.objects.create(
                     order_id=session_id,
