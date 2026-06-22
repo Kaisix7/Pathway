@@ -1026,8 +1026,10 @@ def stripe_success(request):
     stripe.api_key = settings.STRIPE_SECRET_KEY
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        user_email = session.metadata.get('user_email') or session.customer_details.get('email') or ''
-        referer_base = session.metadata.get('referer_base') or 'http://127.0.0.1:8000'
+        metadata = getattr(session, 'metadata', None) or {}
+        customer_details = getattr(session, 'customer_details', None) or {}
+        user_email = metadata.get('user_email') or customer_details.get('email') or ''
+        referer_base = metadata.get('referer_base') or 'http://127.0.0.1:8000'
         payment_status = session.payment_status
 
         order = Order.objects.filter(order_id=session_id).first()
@@ -1096,7 +1098,8 @@ def payment_status(request):
             try:
                 session = stripe.checkout.Session.retrieve(session_id)
                 payment_status = session.payment_status
-                user_email = session.metadata.get('user_email') or ''
+                metadata = getattr(session, 'metadata', None) or {}
+                user_email = metadata.get('user_email') or ''
 
                 order = Order.objects.create(
                     order_id=session_id,
