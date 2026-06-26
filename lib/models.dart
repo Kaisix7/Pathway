@@ -22,7 +22,7 @@ Color planColor(Plan p) {
     case Plan.standard:
       return Colors.blue;
     case Plan.premium:
-      return Colors.orange;
+      return const Color(0xFFE8D44D);
   }
 }
 
