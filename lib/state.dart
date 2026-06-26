@@ -117,6 +117,9 @@ class AppState extends ChangeNotifier {
 
     authed = true;
     notifyListeners();
+
+    // Sync plan from backend (non-blocking)
+    await fetchAndApplyPlan();
   }
 
   // ── Foreigner Login ─────────────────────────────────────────────────
@@ -131,6 +134,7 @@ class AppState extends ChangeNotifier {
     String utmSource = '',
     String utmMedium = '',
     String utmCampaign = '',
+    String? token,
   }) async {
     savedEmail = contact;
     role = UserRole.foreigner;
@@ -144,6 +148,11 @@ class AppState extends ChangeNotifier {
     this.utmSource = utmSource.trim();
     this.utmMedium = utmMedium.trim();
     this.utmCampaign = utmCampaign.trim();
+
+    // Store token if provided (e.g. from backend login response)
+    if (token != null && token.isNotEmpty) {
+      authToken = token;
+    }
 
     // Sync to Analytics static properties
     Analytics.userCompany = this.company;
@@ -184,6 +193,10 @@ class AppState extends ChangeNotifier {
 
     authed = true;
     notifyListeners();
+
+    // Sync plan from backend so a previously-subscribed user
+    // immediately sees their correct plan without re-purchasing.
+    await fetchAndApplyPlan();
   }
 
   void loginWorker({
@@ -240,12 +253,18 @@ class AppState extends ChangeNotifier {
     authToken = data['token'];
     authed = true;
 
+    // Apply plan from login response immediately
+    plan = _parsePlan(data['user']['plan'] as String?);
+
     await Analytics.trackLogin(email, source: 'admin');
     await Analytics.identify(email, properties: {
       'role': 'admin',
     });
 
     notifyListeners();
+
+    // Re-fetch plan from backend to confirm
+    await fetchAndApplyPlan();
   }
 
   void logout() {
@@ -314,6 +333,35 @@ class AppState extends ChangeNotifier {
       Analytics.groupIdentify(contact, this.company);
     }
     notifyListeners();
+  }
+
+  /// Convert the backend plan string (e.g. 'premium', 'standard', 'free') to a [Plan] enum.
+  Plan _parsePlan(String? planStr) {
+    switch (planStr) {
+      case 'premium':
+        return Plan.premium;
+      case 'standard':
+        return Plan.standard;
+      default:
+        return Plan.free;
+    }
+  }
+
+  /// Fetch the user's plan from the backend and update local state.
+  /// Silently ignores errors so it never blocks the login flow.
+  Future<void> fetchAndApplyPlan() async {
+    if (authToken == null || authToken!.isEmpty) return;
+    try {
+      final profile = await ApiService.fetchUserProfile(authToken!);
+      if (profile == null) return;
+      final backendPlan = _parsePlan(profile['plan'] as String?);
+      if (backendPlan != plan) {
+        plan = backendPlan;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('fetchAndApplyPlan error: $e');
+    }
   }
 
   void setPlan(Plan p) {

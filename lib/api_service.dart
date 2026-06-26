@@ -42,7 +42,7 @@ class ApiService {
     return 'idem_${now}_$rand';
   }
 
-  static Future<bool> registerUser({
+  static Future<String?> registerUser({
     required String name,
     required String email,
     String company = '',
@@ -68,10 +68,12 @@ class ApiService {
 
       if (response.statusCode != 200) {
         debugPrint(response.body);
-        return false;
+        return null;
       }
 
-      return true;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      // Backend returns { "status": "ok", "token": "...", "user": {...} }
+      return data['token'] as String?;
     } catch (e, stackTrace) {
       debugPrint('registerUser error: $e');
       debugPrint(stackTrace.toString());
@@ -249,6 +251,57 @@ class ApiService {
       debugPrint('payOrder error: $e');
       debugPrint(stackTrace.toString());
       rethrow;
+    }
+  }
+
+  // ── Profile ─────────────────────────────────────────────────────────
+
+  /// Fetch the current user's profile from the backend using their auth token.
+  /// Returns the profile map (contains 'plan', 'name', 'email', etc.) or null on error.
+  static Future<Map<String, dynamic>?> fetchUserProfile(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile/'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('fetchUserProfile error (${response.statusCode}): ${response.body}');
+        return null;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['user'] as Map<String, dynamic>?;
+    } catch (e) {
+      debugPrint('fetchUserProfile error: $e');
+      return null;
+    }
+  }
+
+  /// Login via email+password and return the user data including plan.
+  /// Returns the response data map or null on error.
+  static Future<Map<String, dynamic>?> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/login/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('loginWithEmail error (${response.statusCode}): ${response.body}');
+        return null;
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('loginWithEmail error: $e');
+      return null;
     }
   }
 

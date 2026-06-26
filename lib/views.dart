@@ -249,7 +249,7 @@ class _AuthViewState extends State<AuthView> {
 
       try {
         final utms = Analytics.getStoredUtms();
-        final registered = await ApiService.registerUser(
+        final token = await ApiService.registerUser(
           name: '${fName.text.trim()} ${lName.text.trim()}',
           email: fContact.text.trim(),
           company: fCompany.text.trim(),
@@ -258,7 +258,7 @@ class _AuthViewState extends State<AuthView> {
           utmCampaign: utms['utm_campaign'] ?? '',
         );
 
-        if (!registered) {
+        if (token == null) {
           if (!mounted) return;
           _snack(context, 'Registration failed. Check Django API response.');
           return;
@@ -274,8 +274,10 @@ class _AuthViewState extends State<AuthView> {
           utmSource: utms['utm_source'] ?? '',
           utmMedium: utms['utm_medium'] ?? '',
           utmCampaign: utms['utm_campaign'] ?? '',
+          token: token,
         );
         return;
+
       } catch (e) {
         if (!mounted) return;
         _snack(context, 'Could not connect to Django: $e');
