@@ -49,4 +49,7 @@ urlpatterns = [
     path('stripe/success/', views.stripe_success),
     path('stripe/cancel/', views.stripe_cancel),
     path('payment/status/', views.payment_status),
+    path('payment/bereke/checkout/', views.bereke_checkout),
+    path('payment/bereke/callback/', views.bereke_callback),
+    path('payment/refund/', views.payment_refund),
 ]
