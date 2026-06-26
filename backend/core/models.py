@@ -110,3 +110,10 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order {self.order_id} - {self.user_email} - {self.status}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user_email'], name='order_usr_email_idx'),
+            models.Index(fields=['status'], name='order_pymt_status_idx'),
+            models.Index(fields=['created_at'], name='order_created_at_idx'),
+        ]

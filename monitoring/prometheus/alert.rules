@@ -1,0 +1,20 @@
+groups:
+  - name: pathway_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "Service {{ $labels.instance }} has been offline for more than 30 seconds."
+
+      - alert: HighErrorRate
+        expr: sum(rate(pathway_http_requests_total{status_class="5xx"}[1m])) / sum(rate(pathway_http_requests_total[1m])) * 100 > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | printf \"%.2f\" }}% which is above the 5% threshold."

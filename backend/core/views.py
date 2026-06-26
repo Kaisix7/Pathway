@@ -227,6 +227,33 @@ def metrics(request):
 
     kpis = _calculate_kpi_values()
 
+    # Retrieve HTTP metrics from Redis cache
+    from .cache import get_redis_client, _redis_is_available
+    r_2xx = r_3xx = r_4xx = r_5xx = 0
+    b_01 = b_05 = b_10 = b_50 = b_inf = 0
+    duration_sum = 0.0
+    duration_count = 0
+
+    if _redis_is_available():
+        try:
+            r = get_redis_client()
+            r_2xx = int(r.get("metrics:http_requests_total:2xx") or 0)
+            r_3xx = int(r.get("metrics:http_requests_total:3xx") or 0)
+            r_4xx = int(r.get("metrics:http_requests_total:4xx") or 0)
+            r_5xx = int(r.get("metrics:http_requests_total:5xx") or 0)
+            
+            b_01 = int(r.get("metrics:http_request_duration_seconds_bucket:0.1") or 0)
+            b_05 = int(r.get("metrics:http_request_duration_seconds_bucket:0.5") or 0)
+            b_10 = int(r.get("metrics:http_request_duration_seconds_bucket:1.0") or 0)
+            b_50 = int(r.get("metrics:http_request_duration_seconds_bucket:5.0") or 0)
+            b_inf = int(r.get("metrics:http_request_duration_seconds_bucket:inf") or 0)
+            
+            sum_ms = int(r.get("metrics:http_request_duration_seconds_sum_ms") or 0)
+            duration_sum = float(sum_ms) / 1000.0
+            duration_count = int(r.get("metrics:http_request_duration_seconds_count") or 0)
+        except Exception:
+            pass
+
     lines = [
         '# HELP pathway_users_total Total registered users',
         '# TYPE pathway_users_total gauge',
@@ -261,9 +288,24 @@ def metrics(request):
         '# HELP pathway_stickiness_ratio_percent DAU/MAU stickiness percentage',
         '# TYPE pathway_stickiness_ratio_percent gauge',
         f'pathway_stickiness_ratio_percent {kpis["stickiness_ratio_percent"]}',
+        '# HELP pathway_http_requests_total Total number of HTTP requests',
+        '# TYPE pathway_http_requests_total counter',
+        f'pathway_http_requests_total{{status_class="2xx"}} {r_2xx}',
+        f'pathway_http_requests_total{{status_class="3xx"}} {r_3xx}',
+        f'pathway_http_requests_total{{status_class="4xx"}} {r_4xx}',
+        f'pathway_http_requests_total{{status_class="5xx"}} {r_5xx}',
+        '# HELP pathway_http_request_duration_seconds HTTP request latency histogram',
+        '# TYPE pathway_http_request_duration_seconds histogram',
+        f'pathway_http_request_duration_seconds_bucket{{le="0.1"}} {b_01}',
+        f'pathway_http_request_duration_seconds_bucket{{le="0.5"}} {b_05}',
+        f'pathway_http_request_duration_seconds_bucket{{le="1.0"}} {b_10}',
+        f'pathway_http_request_duration_seconds_bucket{{le="5.0"}} {b_50}',
+        f'pathway_http_request_duration_seconds_bucket{{le="+Inf"}} {b_inf}',
+        f'pathway_http_request_duration_seconds_sum {duration_sum}',
+        f'pathway_http_request_duration_seconds_count {duration_count}',
     ]
     payload = '\n'.join(lines)
-    cache_set('metrics:v1', payload, ttl=60)
+    cache_set('metrics:v1', payload, ttl=5)
     response = HttpResponse(payload, content_type='text/plain; version=0.0.4')
     response['X-Cache'] = 'MISS'
     return response
@@ -1142,3 +1184,170 @@ def frontend(request):
         'POSTHOG_API_KEY': os.getenv('POSTHOG_API_KEY', ''),
         'POSTHOG_HOST': os.getenv('POSTHOG_HOST', 'https://app.posthog.com'),
     })
+
+
+@csrf_exempt
+def bereke_checkout(request):
+    import uuid
+    user_email = request.GET.get('user_email') or request.POST.get('user_email') or ''
+    amount = request.GET.get('amount') or request.POST.get('amount') or 2499
+    try:
+        amount = int(amount)
+    except ValueError:
+        amount = 2499
+
+    session_id = f"bereke_{uuid.uuid4()}"
+
+    Order.objects.create(
+        order_id=session_id,
+        user_email=user_email,
+        amount=amount,
+        status='created'
+    )
+
+    AppEvent.objects.create(
+        event_name='checkout_started',
+        user_email=user_email,
+        properties={'session_id': session_id, 'amount': amount, 'gateway': 'bereke'}
+    )
+
+    simulated_url = request.build_absolute_uri(f"/api/payment/bereke/callback/?session_id={session_id}&status=success")
+    
+    return JsonResponse({
+        'url': simulated_url,
+        'session_id': session_id,
+        'message': 'Simulated Bereke checkout session created'
+    })
+
+
+@csrf_exempt
+def bereke_callback(request):
+    session_id = request.GET.get('session_id') or request.POST.get('session_id')
+    status = request.GET.get('status') or request.POST.get('status') or 'success'
+
+    if not session_id:
+        return JsonResponse({'error': 'session_id is required'}, status=400)
+
+    order = Order.objects.filter(order_id=session_id).first()
+    if not order:
+        return JsonResponse({'error': 'Order not found'}, status=404)
+
+    if status == 'success':
+        order.status = 'paid'
+        order.save()
+
+        if order.user_email:
+            AppUser.objects.filter(email=order.user_email).update(plan='premium')
+
+        AppEvent.objects.create(
+            event_name='payment completed',
+            user_email=order.user_email,
+            properties={
+                'session_id': session_id,
+                'amount': order.amount,
+                'gateway': 'bereke',
+                '$amt': float(order.amount) / 100.0,
+                '$currency': 'USD'
+            }
+        )
+        logger.info(
+            f"Bereke payment successful for {order.user_email}",
+            extra={
+                'event': 'payment_success',
+                'user_id': getattr(AppUser.objects.filter(email=order.user_email).first(), 'id', None),
+                'request_id': getattr(request, 'request_id', ''),
+                'payment_id': session_id,
+                'status': 200,
+                'endpoint': request.path,
+                'ip': _client_ip(request)
+            }
+        )
+        return JsonResponse({'status': 'payment verified', 'order_id': session_id})
+    else:
+        order.status = 'failed'
+        order.save()
+
+        AppEvent.objects.create(
+            event_name='payment failed',
+            user_email=order.user_email,
+            properties={
+                'session_id': session_id,
+                'amount': order.amount,
+                'gateway': 'bereke'
+            }
+        )
+        logger.error(
+            f"Bereke payment failed for {order.user_email}",
+            extra={
+                'event': 'payment_failed',
+                'user_id': getattr(AppUser.objects.filter(email=order.user_email).first(), 'id', None),
+                'request_id': getattr(request, 'request_id', ''),
+                'payment_id': session_id,
+                'status': 400,
+                'endpoint': request.path,
+                'ip': _client_ip(request)
+            }
+        )
+        return JsonResponse({'status': 'payment failed', 'order_id': session_id}, status=400)
+
+
+@csrf_exempt
+def payment_refund(request):
+    import stripe
+    user, error = require_admin(request)
+    if error:
+        return error
+
+    body = json.loads(request.body or '{}')
+    order_id = body.get('order_id')
+    if not order_id:
+        return JsonResponse({'error': 'order_id is required'}, status=400)
+
+    order = Order.objects.filter(order_id=order_id).first()
+    if not order:
+        return JsonResponse({'error': 'Order not found'}, status=404)
+
+    if order.status != 'paid':
+        return JsonResponse({'error': f'Order cannot be refunded as its status is {order.status}'}, status=400)
+
+    if order_id.startswith('cs_') or order_id.startswith('sess_'):
+        if not settings.STRIPE_SECRET_KEY:
+            return JsonResponse({'error': 'Stripe secret key not configured'}, status=500)
+        try:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            session = stripe.checkout.Session.retrieve(order_id)
+            if session.payment_intent:
+                stripe.Refund.create(payment_intent=session.payment_intent)
+        except Exception as e:
+            return JsonResponse({'error': f'Stripe refund failed: {str(e)}'}, status=500)
+    
+    order.status = 'refunded'
+    order.save()
+
+    if order.user_email:
+        AppUser.objects.filter(email=order.user_email).update(plan='free')
+
+    AppEvent.objects.create(
+        event_name='payment refunded',
+        user_email=order.user_email,
+        properties={
+            'order_id': order_id,
+            'amount': order.amount,
+            'user_email': order.user_email
+        }
+    )
+
+    logger.info(
+        f"Order {order_id} has been refunded",
+        extra={
+            'event': 'payment_refunded',
+            'user_id': user.id,
+            'request_id': getattr(request, 'request_id', ''),
+            'payment_id': order_id,
+            'status': 200,
+            'endpoint': request.path,
+            'ip': _client_ip(request)
+        }
+    )
+
+    return JsonResponse({'status': 'refunded', 'order_id': order_id})

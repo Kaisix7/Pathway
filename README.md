@@ -1,80 +1,112 @@
-# Pathway 
+# Pathway - Production-Ready Travel Services Platform
 
-Pathway is a mobile application built with Flutter and Django that simplifies various user services such as visa applications, service requests, and user assistance.
+Pathway is a production-ready mobile and web application built with Flutter and Django that simplifies user services such as visa applications, service requests, and airport pickup orders.
+
+---
+
 ## 📱 Features
-* User registration
-* Order creation (e.g., airport pickup services)
-* View and manage orders
-* Backend integration via Django REST API
-* Multi-screen navigation (Home, Services, Visa, Assistant, Account)
+
+* **User Registration & Security**: JWT Authentication, RBAC (Role-Based Access Control), CAPTCHA protection, Google OAuth 2.0, and 2FA (Two-Factor Authentication).
+* **Order Management**: Comprehensive order creation, status tracking, and paid/done order workflows.
+* **Unified Payment Flow**: E2E Stripe Card payment & Bereke Bank callback simulation (including success/failed states and admin refunds).
+* **Monitoring & Alerts**: Full VPS deployment configuration with Prometheus, Grafana, Node Exporter, and Alertmanager.
+* **JSON Logging**: Every API request and response is structured into standardized JSON format for production audit trail.
+* **Performance Suite**: Built-in Locust load test suite, database indexing optimizations, and query performance safeguards.
+
+---
+
 ## 🧱 Tech Stack
-### Frontend
-* Flutter (Dart)
-### Backend
-* Django (Python)
-* JWT Authentication
-* RBAC (Role-Based Access Control)
-* CAPTCHA protection
-* Google OAuth 2.0
-### Infrastructure
-* Docker
-* PostgreSQL
-* Render (deployment)
-## Getting Started
+
+* **Frontend**: Flutter (Dart)
+* **Backend**: Django (Python)
+* **Cache & Message Broker**: Redis
+* **Database**: PostgreSQL (with optimized indexes)
+* **Task Queue**: Celery
+* **Monitoring**: Prometheus, Grafana, Node Exporter, Alertmanager
+* **Load Testing**: Locust
+
+---
+
+## 🚀 Getting Started
+
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/Kaisix7/Pathway.git
 cd Pathway
 ```
-### 2. Run Backend (Django)
+
+### 2. Run with Docker Compose (Includes Monitoring Stack)
 ```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
+docker compose up --build -d
 ```
-### 3. Run Frontend (Flutter)
+This command starts:
+- **Django Backend** at `http://localhost:8000`
+- **PostgreSQL Database** at `localhost:5432`
+- **Redis Cache & Celery Worker**
+- **Prometheus** at `http://localhost:9090`
+- **Grafana** at `http://localhost:3000` (Default credentials: `admin` / `admin`)
+- **Alertmanager** at `http://localhost:9093`
+- **Node Exporter** at `localhost:9100`
 
+---
+
+## 📈 Monitoring & Alerts
+
+### 4 Golden Signals Dashboard
+Access Grafana (`http://localhost:3000`) to view preconfigured panels for:
+1. **Request Rate (Traffic)**: HTTP requests/sec grouped by status class.
+2. **Error Rate (%)**: Percentage of 5xx server errors relative to total requests.
+3. **P95 Latency**: 95th percentile response latency in seconds.
+4. **Saturation (CPU & Memory)**: CPU load percentage and memory consumption statistics.
+
+### Production Alert Rules
+Prometheus Alertmanager is configured with two default alerts:
+- **Service Down**: Fires when any service is unreachable for >30 seconds.
+- **Error Rate > 5%**: Fires when 5xx HTTP response codes exceed 5% of total traffic.
+
+---
+
+## 🔄 Database Backups
+A daily database backup script is located at `backend/scripts/db_backup.sh`. It outputs compressed SQL dumps into `/app/backups/`.
+To execute manually:
 ```bash
-flutter pub get
-flutter run
-```
-## API
-
-Base URL:
-
-```
-http://127.0.0.1:8000/api
+docker compose exec backend bash /app/scripts/db_backup.sh
 ```
 
-For Android Emulator:
+---
 
-```
-http://10.0.2.2:8000/api
-```
-## Test
-* test_register
-* test_login
-* test_orders
-* test_admin_access
-* test_rate_limit
-* test_captcha
-* test_2fa
+## 💳 Payment Integrations
+- **Stripe**: E2E checkout session creation (`/api/checkout/`) and verification callbacks.
+- **Bereke Bank**:
+  - Checkout Simulation: `GET/POST /api/payment/bereke/checkout/`
+  - Callback Webhook: `GET/POST /api/payment/bereke/callback/?session_id=<ID>&status=success|failed`
+- **Refunds**: Admin endpoint `POST /api/payment/refund/` supporting both Stripe sessions and Bereke transactions.
 
-Run tests:
+---
 
+## 🪵 JSON Logging System
+All application logs are printed as single-line JSON format containing:
+- `timestamp`, `event`, `user_id`, `request_id`, `payment_id`, `status`, `endpoint`, `response_time`, `ip`, and standard logging levels.
+
+---
+
+## ⚡ Performance Load Tests (Locust)
+A locust file is configured to run load tests against the API endpoints:
+- **Test parameters**: 100 concurrent users, spawn rate of 10 users/sec, run duration of 2 minutes.
+- **Tasks**: Login flow, Health Check, Order Retrieval, Order Creation.
+
+To run the load test headlessly and export the HTML report:
 ```bash
-pytest
+# On Linux/macOS
+bash scripts/run_locust.sh
+
+# On Windows (PowerShell)
+powershell -File scripts/run_locust.ps1
 ```
-##  Deployment
-* Render
-* Docker
-## Author
-Karina
-## System docs
-- `docs/ARCHITECTURE.md`
-- `docs/DEPLOYMENT.md`
-- `docs/GIT_WORKFLOW.md`
-- `docs/BACKUPS.md`
+
+---
+
+## 🧪 Running Unit Tests
+```bash
+docker compose exec backend pytest
+```
