@@ -58,7 +58,11 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                LinearProgressIndicator(value: progress),
+                LinearProgressIndicator(
+                  value: progress,
+                  color: const Color(0xFFE8D44D),
+                  backgroundColor: const Color(0xFF2A2A2A),
+                ),
               ],
             ),
           ),

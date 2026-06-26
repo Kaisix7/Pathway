@@ -81,14 +81,9 @@ class _VisaViewState extends State<VisaView> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFF141414),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 10,
-                    color: Colors.black.withOpacity(0.1),
-                  )
-                ],
+                border: Border.all(color: const Color(0xFF242424)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

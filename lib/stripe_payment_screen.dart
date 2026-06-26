@@ -209,7 +209,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Theme.of(context).colorScheme.surface, const Color(0xFF112600)],
+                colors: [Theme.of(context).colorScheme.surface, const Color(0xFF141414)],
               ),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3), width: 1.5),
@@ -395,12 +395,12 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
             const Column(
               children: [
                 CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00BFA6)),
+                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
                 ),
                 SizedBox(height: 16),
                 Text(
                   'Verifying payment status...',
-                  style: TextStyle(color: Color(0xFF00BFA6), fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Color(0xFFE8D44D), fontWeight: FontWeight.bold),
                 )
               ],
             )
@@ -492,8 +492,8 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
               height: 54,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

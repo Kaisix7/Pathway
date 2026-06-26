@@ -326,145 +326,298 @@ class _AuthViewState extends State<AuthView> {
 
   @override
   Widget build(BuildContext context) {
-    final grad = const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF163300), Color(0xFF0D2100)],
-    );
+    final isWide = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(gradient: grad),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: isWide ? _wideLayout(context) : _narrowLayout(context),
+    );
+  }
+
+  // ── Wide layout (desktop/tablet) ─────────────────────────────────────────
+  Widget _wideLayout(BuildContext context) {
+    return Row(
+      children: [
+        // Left hero panel
+        Expanded(
+          flex: 6,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(color: const Color(0xFF0A0A0A)),
+              // Subtle grid texture overlay
+              Opacity(
+                opacity: 0.04,
+                child: Image.network(
+                  'https://www.transparenttextures.com/patterns/subtle-dots.png',
+                  repeat: ImageRepeat.repeat,
+                  fit: BoxFit.none,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 56),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
-                      child: Image.asset(
-                        'assets/logo.png',
-                        width: 68,
-                        height: 68,
-                        fit: BoxFit.cover,
-                      ),
+                    // Logo
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset('assets/logo.png', width: 40, height: 40, fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'PATHWAY',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                    const Spacer(),
+                    // Hero headline
                     const Text(
-                      'PATHWAY',
+                      'RELOCATE\nSMARTER.',
                       style: TextStyle(
-                        fontSize: 32,
+                        fontSize: 72,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
-                        letterSpacing: 1.5,
+                        height: 0.92,
+                        letterSpacing: -3,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Your digital relocation guide in Kazakhstan',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8D44D),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(32),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 30,
-                              offset: const Offset(0, 15),
-                            )
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _roleSwitch(),
-                            const SizedBox(height: 24),
-                            Expanded(
-                              child: ListView(
-                                children: [
-                                  if (role == UserRole.foreigner) ..._foreignerForm(context),
-                                  if (role == UserRole.worker) ..._workerForm(context),
-                                  if (role == UserRole.admin) ..._adminForm(context),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 58,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).colorScheme.primary,
-                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                                  shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                                  elevation: 8,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                onPressed: _handleStartPressed,
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'Start Journey',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 16,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Icon(Icons.arrow_forward_rounded, size: 20),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                      child: const Text(
+                        'Digital relocation guide for Kazakhstan',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0A0A0A),
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 48),
+                    // Feature bullets
+                    _heroBullet(Icons.badge_outlined, 'IIN booking & queue navigation'),
+                    const SizedBox(height: 14),
+                    _heroBullet(Icons.home_outlined, 'Verified housing database'),
+                    const SizedBox(height: 14),
+                    _heroBullet(Icons.description_outlined, 'Visa & document tracker'),
+                    const SizedBox(height: 14),
+                    _heroBullet(Icons.smart_toy_outlined, 'AI immigration assistant'),
+                    const Spacer(),
                     Text(
-                      'Week 2 demo build • Flutter Web & Mobile',
+                      'PATHWAY • Digital Relocation Platform',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.35),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withOpacity(0.2),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
                       ),
                     ),
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+        // Right form panel
+        Container(
+          width: 1,
+          color: const Color(0xFF1E1E1E),
+        ),
+        Expanded(
+          flex: 4,
+          child: Container(
+            color: const Color(0xFF0E0E0E),
+            child: SafeArea(
+              child: _formPanel(context),
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  // ── Narrow layout (mobile) ───────────────────────────────────────────────
+  Widget _narrowLayout(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Compact top bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset('assets/logo.png', width: 32, height: 32, fit: BoxFit.cover),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'PATHWAY',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Mini hero
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'RELOCATE\nSMARTER.',
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 0.92,
+                    letterSpacing: -2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8D44D),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Digital relocation guide for Kazakhstan',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0A0A0A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(child: _formPanel(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroBullet(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8D44D).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: const Color(0xFFE8D44D)),
+        ),
+        const SizedBox(width: 14),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Form panel (shared) ──────────────────────────────────────────────────
+  Widget _formPanel(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Get started',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Create your account or sign in',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.4),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _roleSwitch(),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView(
+              children: [
+                if (role == UserRole.foreigner) ..._foreignerForm(context),
+                if (role == UserRole.worker) ..._workerForm(context),
+                if (role == UserRole.admin) ..._adminForm(context),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _handleStartPressed,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text(
+                    'Start Journey',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, size: 18),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _roleSwitch() {
     return Container(
-      padding: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withOpacity(0.4),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
       ),
       child: Row(
         children: [
@@ -476,7 +629,7 @@ class _AuthViewState extends State<AuthView> {
               onTap: () => setState(() => role = UserRole.foreigner),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 3),
           Expanded(
             child: _seg(
               active: role == UserRole.worker,
@@ -485,7 +638,7 @@ class _AuthViewState extends State<AuthView> {
               onTap: () => setState(() => role = UserRole.worker),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 3),
           Expanded(
             child: _seg(
               active: role == UserRole.admin,
@@ -500,35 +653,31 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Widget _seg({required bool active, required IconData icon, required String text, required VoidCallback onTap}) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: active ? Theme.of(context).colorScheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
+          color: active ? const Color(0xFFE8D44D) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: active ? Theme.of(context).colorScheme.onPrimary : Colors.white54),
-            const SizedBox(width: 8),
+            Icon(
+              icon,
+              size: 16,
+              color: active ? const Color(0xFF0A0A0A) : Colors.white38,
+            ),
+            const SizedBox(width: 6),
             Text(
               text,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: active ? Theme.of(context).colorScheme.onPrimary : Colors.white54,
+                fontSize: 12,
+                color: active ? const Color(0xFF0A0A0A) : Colors.white38,
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -583,12 +732,13 @@ class _AuthViewState extends State<AuthView> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF2A2A2A)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.flag_outlined, color: Colors.white54),
+            const Icon(Icons.flag_outlined, color: Colors.white38, size: 18),
             const SizedBox(width: 12),
             Expanded(
               child: CountryListPick(
@@ -783,10 +933,10 @@ class _AuthViewState extends State<AuthView> {
       child: Text(
         t.toUpperCase(),
         style: const TextStyle(
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.0,
-          color: Color(0xFF94A3B8), // Slate 400
-          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
+          color: Color(0xFF555555),
+          fontSize: 10,
         ),
       ),
     );
@@ -794,29 +944,47 @@ class _AuthViewState extends State<AuthView> {
 
   Widget _hintBox({required String title, required List<String> lines}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        color: const Color(0xFF141414),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              fontSize: 13,
+            ),
+          ),
           const SizedBox(height: 10),
           for (final l in lines)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 10),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 3),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 10,
+                      color: Color(0xFFE8D44D),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       l,
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -830,10 +998,14 @@ class _AuthViewState extends State<AuthView> {
   void _snack(BuildContext context, String t) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(t, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E293B),
+        content: Text(t, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: const Color(0xFF1A1A1A),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF2A2A2A)),
+        ),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -998,7 +1170,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 2),
-              const Text('DIGITAL RELOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF00BFA6))),
+              const Text('DIGITAL RELOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFE8D44D))),
             ],
           ),
         ],
@@ -1065,14 +1237,14 @@ class HomeView extends StatelessWidget {
         app: app,
         trailing: CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFFDEF8F3),
+          backgroundColor: const Color(0xFF1E1E1E),
           backgroundImage: app.avatarUrl.isNotEmpty ? NetworkImage(app.avatarUrl) : null,
           child: app.avatarUrl.isEmpty
               ? Text(
                   app.role == UserRole.worker
                       ? (app.workerRole.isEmpty ? 'W' : app.workerRole.characters.first.toUpperCase())
                       : (app.firstName.isEmpty ? 'U' : app.firstName.characters.first.toUpperCase()),
-                  style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6)),
+                  style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE8D44D)),
                 )
               : null,
         ),
@@ -1115,19 +1287,8 @@ class HomeView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6366F1), Color(0xFF4F46E5), Color(0xFF312E81)],
-        ),
+        color: const Color(0xFFE8D44D),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          )
-        ],
       ),
       child: Row(
         children: [
@@ -1138,13 +1299,13 @@ class HomeView extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.black.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
                     'LIMITED OFFER',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.0,
@@ -1155,7 +1316,7 @@ class HomeView extends StatelessWidget {
                 const Text(
                   'Unlock Premium Features',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1164,7 +1325,7 @@ class HomeView extends StatelessWidget {
                 const Text(
                   'Get unlimited AI answers, priority booking queue, and pre-verified dorms.',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: Colors.black87,
                     fontSize: 13,
                     height: 1.3,
                   ),
@@ -1175,13 +1336,13 @@ class HomeView extends StatelessWidget {
           const SizedBox(width: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00BFA6),
-              foregroundColor: Colors.black,
+              backgroundColor: Colors.black,
+              foregroundColor: const Color(0xFFE8D44D),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              elevation: 4,
+              elevation: 0,
             ),
             onPressed: () {
               Navigator.push(
@@ -1206,34 +1367,26 @@ class HomeView extends StatelessWidget {
   }
 
   Widget _roadmapCard({required String hello, required double progress, required int done, required int total}) {
-    final grad = const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF00BFA6), Color(0xFF0D8B7A)],
-    );
-
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: grad,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(34),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 22, offset: const Offset(0, 12)),
-        ],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('YOUR ROADMAP', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white70, letterSpacing: 1)),
+          const Text('YOUR ROADMAP', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1)),
           const SizedBox(height: 8),
           Text(hello, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 30, color: Colors.white)),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.16),
+              color: const Color(0xFF1A1A1A),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              border: Border.all(color: const Color(0xFF2A2A2A)),
             ),
             child: Row(
               children: [
@@ -1241,7 +1394,7 @@ class HomeView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('ADAPTATION PROGRESS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white70, fontSize: 12, letterSpacing: 0.6)),
+                      const Text('ADAPTATION PROGRESS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white38, fontSize: 12, letterSpacing: 0.6)),
                       const SizedBox(height: 8),
                       Text('${(progress * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 28)),
                       const SizedBox(height: 10),
@@ -1250,8 +1403,8 @@ class HomeView extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: progress,
                           minHeight: 10,
-                          backgroundColor: Colors.white.withOpacity(0.16),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          backgroundColor: const Color(0xFF2A2A2A),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE8D44D)),
                         ),
                       ),
                     ],
@@ -1261,7 +1414,7 @@ class HomeView extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('TASKS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white70, fontSize: 12, letterSpacing: 0.6)),
+                    const Text('TASKS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white38, fontSize: 12, letterSpacing: 0.6)),
                     const SizedBox(height: 8),
                     Text('$done/$total', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 24)),
                   ],
@@ -1278,8 +1431,9 @@ class HomeView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAECEF),
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Row(
         children: [
@@ -1287,10 +1441,10 @@ class HomeView extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFCCF6EE),
+              color: const Color(0xFFE8D44D).withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.check_circle, color: Color(0xFF00BFA6)),
+            child: const Icon(Icons.check_circle, color: Color(0xFFE8D44D)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1299,7 +1453,7 @@ class HomeView extends StatelessWidget {
               children: [
                 Text(text, style: const TextStyle(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                const Text('LEGAL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Color(0xFF7E8AA5), letterSpacing: 0.7)),
+                const Text('LEGAL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.white38, letterSpacing: 0.7)),
               ],
             ),
           ),
@@ -1319,14 +1473,14 @@ class HomeView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Managed foreigners', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black.withOpacity(0.85))),
+          Text('Managed foreigners', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white.withOpacity(0.85))),
           const SizedBox(height: 10),
           for (final m in managed.take(3))
             Padding(
@@ -1335,8 +1489,8 @@ class HomeView extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: Color.lerp(const Color(0xFF00BFA6), const Color(0xFF2E7DFF), rnd.nextDouble())!.withOpacity(0.18),
-                    child: Text(m['name']!.substring(0, 1), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6))),
+                    backgroundColor: Color.lerp(const Color(0xFFE8D44D), const Color(0xFF2E7DFF), rnd.nextDouble())!.withOpacity(0.18),
+                    child: Text(m['name']!.substring(0, 1), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE8D44D))),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1345,11 +1499,11 @@ class HomeView extends StatelessWidget {
                       children: [
                         Text(m['name']!, style: const TextStyle(fontWeight: FontWeight.w900)),
                         const SizedBox(height: 2),
-                        Text('IIN: ${m['iin']} • Visa: ${m['visa']}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5), fontSize: 12)),
+                        Text('IIN: ${m['iin']} • Visa: ${m['visa']}', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white38, fontSize: 12)),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: Color(0xFF7E8AA5)),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.white38),
                 ],
               ),
             ),
@@ -1368,9 +1522,9 @@ class HomeView extends StatelessWidget {
             height: 86,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFF141414),
               borderRadius: BorderRadius.circular(22),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+              border: Border.all(color: const Color(0xFF242424)),
             ),
             child: Row(
               children: [
@@ -1401,7 +1555,7 @@ class HomeView extends StatelessWidget {
         card(
           icon: Icons.home_outlined,
           t: 'Housing',
-          c: const Color(0xFF00BFA6),
+          c: const Color(0xFFE8D44D),
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HousingView(app: app))),
         ),
       ],
@@ -1504,15 +1658,15 @@ class ServicesView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFF141414),
               borderRadius: BorderRadius.circular(22),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+              border: Border.all(color: const Color(0xFF242424)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.search_rounded, color: Color(0xFF7E8AA5)),
+                const Icon(Icons.search_rounded, color: Colors.white38),
                 const SizedBox(width: 10),
-                Text('Search for a service…', style: TextStyle(color: Colors.black.withOpacity(0.45), fontWeight: FontWeight.w700)),
+                Text('Search for a service…', style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -1530,9 +1684,9 @@ class ServicesView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(26),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: InkWell(
         onTap: it.onTap,
@@ -1556,15 +1710,15 @@ class ServicesView extends StatelessWidget {
                 children: [
                   Text(it.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   const SizedBox(height: 6),
-                  Text(it.subtitle, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                  Text(it.subtitle, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white38)),
                 ],
               ),
             ),
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: const Color(0xFFF1F4FA), borderRadius: BorderRadius.circular(18)),
-              child: const Icon(Icons.chevron_right_rounded, color: Color(0xFF7E8AA5)),
+              decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(18)),
+              child: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
             ),
           ],
         ),
@@ -1623,9 +1777,9 @@ class _AssistantViewState extends State<AssistantView> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       constraints: const BoxConstraints(maxWidth: 240),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: const Color(0xFF141414),
                         borderRadius: BorderRadius.circular(18),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 8))],
+                        border: Border.all(color: const Color(0xFF242424)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1640,7 +1794,7 @@ class _AssistantViewState extends State<AssistantView> {
                             'Assistant is typing...',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF263046),
+                              color: Colors.white70,
                             ),
                           ),
                         ],
@@ -1657,15 +1811,15 @@ class _AssistantViewState extends State<AssistantView> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     constraints: const BoxConstraints(maxWidth: 520),
                     decoration: BoxDecoration(
-                      color: m.fromUser ? const Color(0xFF00BFA6) : Colors.white,
+                      color: m.fromUser ? const Color(0xFFE8D44D) : const Color(0xFF141414),
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 8))],
+                      border: m.fromUser ? null : Border.all(color: const Color(0xFF242424)),
                     ),
                     child: Text(
                       m.text,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: m.fromUser ? Colors.white : const Color(0xFF263046),
+                        color: m.fromUser ? Colors.black : Colors.white,
                       ),
                     ),
                   ),
@@ -1751,14 +1905,14 @@ class AccountView extends StatelessWidget {
               onTap: () => _showEditProfileBottomSheet(context),
               leading: CircleAvatar(
                 radius: 24,
-                backgroundColor: const Color(0xFFDEF8F3),
+                backgroundColor: const Color(0xFF1E1E1E),
                 backgroundImage: app.avatarUrl.isNotEmpty ? NetworkImage(app.avatarUrl) : null,
                 child: app.avatarUrl.isEmpty
                     ? Text(
                         app.role == UserRole.worker
                             ? (app.workerRole.isEmpty ? 'W' : app.workerRole.characters.first.toUpperCase())
                             : (app.firstName.isEmpty ? 'U' : app.firstName.characters.first.toUpperCase()),
-                        style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6), fontSize: 20),
+                        style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE8D44D), fontSize: 20),
                       )
                     : null,
               ),
@@ -1902,11 +2056,11 @@ class AccountView extends StatelessWidget {
         leading: Container(
           width: 44,
           height: 44,
-          decoration: BoxDecoration(color: const Color(0xFFF1F4FA), borderRadius: BorderRadius.circular(16)),
-          child: Icon(icon, color: const Color(0xFF3C4457)),
+          decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(16)),
+          child: Icon(icon, color: const Color(0xFFE8D44D)),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF7E8AA5)),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
         onTap: onTap,
       ),
     );
@@ -1915,9 +2069,9 @@ class AccountView extends StatelessWidget {
   Widget _card({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: child,
     );
@@ -1928,7 +2082,7 @@ class AccountView extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3C4457), height: 1.4),
+          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white70, height: 1.4),
           children: [
             TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w900)),
             TextSpan(text: '${value ?? '-'}'),
@@ -1969,7 +2123,7 @@ class AccountView extends StatelessWidget {
           builder: (context, setState) {
             return Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF163300),
+                color: Color(0xFF141414),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
               ),
               padding: EdgeInsets.only(
@@ -2076,7 +2230,7 @@ class AccountView extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: isSelected ? const Color(0xFF9FE870) : Colors.transparent,
+                                    color: isSelected ? const Color(0xFFE8D44D) : Colors.transparent,
                                     width: 3,
                                   ),
                                 ),
@@ -2119,8 +2273,8 @@ class AccountView extends StatelessWidget {
                       height: 54,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9FE870),
-                          foregroundColor: const Color(0xFF163300),
+                          backgroundColor: const Color(0xFFE8D44D),
+                          foregroundColor: const Color(0xFF0A0A0A),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                         ),
                         onPressed: () {
@@ -2405,9 +2559,9 @@ class _IinQueueViewState extends State<IinQueueView> {
   Widget _card({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: child,
     );
@@ -2430,7 +2584,7 @@ class _IinQueueViewState extends State<IinQueueView> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
-              Text(text, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3C4457))),
+              Text(text, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white70)),
             ]),
           ),
         ],
@@ -2452,7 +2606,7 @@ class _Bullet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('•  ', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6))),
+          const Text('•  ', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE8D44D))),
           Expanded(child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700))),
         ],
       ),
@@ -2518,9 +2672,9 @@ class _HousingViewState extends State<HousingView> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2560,7 +2714,7 @@ class _HousingViewState extends State<HousingView> {
           ),
           const SizedBox(height: 8),
           Text('Price range (KZT/month): ${price.start.round()} — ${price.end.round()}',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF3C4457))),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white70)),
           RangeSlider(
             values: price,
             min: 30000,
@@ -2579,9 +2733,9 @@ class _HousingViewState extends State<HousingView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(26),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -2595,7 +2749,7 @@ class _HousingViewState extends State<HousingView> {
                         ? const Color(0xFFFF9800)
                         : h.type == HousingType.dorm
                             ? const Color(0xFF2E7DFF)
-                            : const Color(0xFF00BFA6))
+                            : const Color(0xFFE8D44D))
                     .withOpacity(0.14),
                 borderRadius: BorderRadius.circular(22),
               ),
@@ -2609,7 +2763,7 @@ class _HousingViewState extends State<HousingView> {
                     ? const Color(0xFFFF9800)
                     : h.type == HousingType.dorm
                         ? const Color(0xFF2E7DFF)
-                        : const Color(0xFF00BFA6),
+                        : const Color(0xFFE8D44D),
               ),
             ),
             const SizedBox(width: 12),
@@ -2620,14 +2774,15 @@ class _HousingViewState extends State<HousingView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: h.verified ? const Color(0xFF00BFA6).withOpacity(0.14) : const Color(0xFF7E8AA5).withOpacity(0.14),
+                        color: h.verified ? const Color(0xFFE8D44D).withOpacity(0.14) : const Color(0xFF1A1A1A),
                         borderRadius: BorderRadius.circular(18),
+                        border: h.verified ? null : Border.all(color: const Color(0xFF2A2A2A)),
                       ),
                       child: Row(
                         children: [
-                          Icon(h.verified ? Icons.verified_outlined : Icons.info_outline, size: 14, color: h.verified ? const Color(0xFF00BFA6) : const Color(0xFF7E8AA5)),
+                          Icon(h.verified ? Icons.verified_outlined : Icons.info_outline, size: 14, color: h.verified ? const Color(0xFFE8D44D) : Colors.white38),
                           const SizedBox(width: 6),
-                          Text(badge, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: h.verified ? const Color(0xFF00BFA6) : const Color(0xFF7E8AA5))),
+                          Text(badge, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: h.verified ? const Color(0xFFE8D44D) : Colors.white38)),
                         ],
                       ),
                     ),
@@ -2640,9 +2795,9 @@ class _HousingViewState extends State<HousingView> {
                 const SizedBox(height: 10),
                 Text(h.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                 const SizedBox(height: 6),
-                Text(h.address, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                Text(h.address, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white38)),
                 const SizedBox(height: 10),
-                Text('KZT ${h.priceKztMonthly.toString()} / month', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF00BFA6))),
+                Text('KZT ${h.priceKztMonthly.toString()} / month', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE8D44D))),
               ]),
             ),
             const SizedBox(width: 10),
@@ -2882,9 +3037,9 @@ class _AirportViewState extends State<AirportView> {
   Widget _card({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: child,
     );
@@ -2915,7 +3070,7 @@ class _VisaDocsViewState extends State<VisaDocsView> {
       if (days == null) return const Color(0xFF7E8AA5);
       if (days < 0) return Colors.red;
       if (days <= 14) return const Color(0xFFFF9800);
-      return const Color(0xFF00BFA6);
+      return const Color(0xFFE8D44D);
     }
 
     String badgeText() {
@@ -3041,9 +3196,9 @@ class _VisaDocsViewState extends State<VisaDocsView> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3100,9 +3255,9 @@ class SubscriptionView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
+        border: Border.all(color: const Color(0xFF242424)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3111,11 +3266,11 @@ class SubscriptionView extends StatelessWidget {
             children: [
               Text(planLabel(p), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
               const Spacer(),
-              if (selected) const Icon(Icons.check_circle, color: Color(0xFF00BFA6)),
+              if (selected) const Icon(Icons.check_circle, color: Color(0xFFE8D44D)),
             ],
           ),
           const SizedBox(height: 6),
-          Text(price, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF7E8AA5))),
+          Text(price, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white38)),
           const SizedBox(height: 10),
           for (final f in features) _Bullet(t: f),
           const SizedBox(height: 10),
@@ -3205,10 +3360,13 @@ class _OrdersViewState extends State<OrdersView> {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
-                    tileColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    tileColor: const Color(0xFF141414),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: const BorderSide(color: Color(0xFF242424)),
+                    ),
                     title: Text(o.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                    subtitle: Text('${o.details}\nStatus: ${o.status}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                    subtitle: Text('${o.details}\nStatus: ${o.status}', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white38)),
                   ),
                 );
               },
@@ -3299,10 +3457,13 @@ class _PaymentsViewState extends State<PaymentsView> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  tileColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  tileColor: const Color(0xFF141414),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: const BorderSide(color: Color(0xFF242424)),
+                  ),
                   title: Text(order.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                  subtitle: Text(order.details, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                  subtitle: Text(order.details, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white38)),
                   trailing: FilledButton(
                     onPressed: isPaying ? null : () => _pay(order),
                     child: const Text('Pay'),
@@ -3323,10 +3484,13 @@ class _PaymentsViewState extends State<PaymentsView> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  tileColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  tileColor: const Color(0xFF141414),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: const BorderSide(color: Color(0xFF242424)),
+                  ),
                   title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                  subtitle: Text('Amount: ${p.amount.toStringAsFixed(2)}\nDate: ${p.date.toLocal()}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7E8AA5))),
+                  subtitle: Text('Amount: ${p.amount.toStringAsFixed(2)}\nDate: ${p.date.toLocal()}', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white38)),
                 ),
               ),
         ],
@@ -3396,10 +3560,10 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Worker: Client Orders', style: TextStyle(fontWeight: FontWeight.w900)),
-        backgroundColor: const Color(0xFF163300),
+        backgroundColor: const Color(0xFF0A0A0A),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -3409,7 +3573,7 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9FE870)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE8D44D)))
           : _error != null
               ? Center(
                   child: Padding(
@@ -3419,7 +3583,7 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                       children: [
                         const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
                         const SizedBox(height: 10),
-                        Text('Error loading orders: $_error', textAlign: TextAlign.center),
+                        Text('Error loading orders: $_error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _fetchOrders,
@@ -3438,7 +3602,7 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                           const SizedBox(height: 16),
                           Text(
                             'No active orders found.',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black.withOpacity(0.45)),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.45)),
                           ),
                         ],
                       ),
@@ -3452,9 +3616,12 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                         
                         return Card(
                           margin: const EdgeInsets.only(bottom: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: const BorderSide(color: Color(0xFF242424)),
+                          ),
                           elevation: 0,
-                          color: Colors.white,
+                          color: const Color(0xFF141414),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -3466,8 +3633,8 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                       decoration: BoxDecoration(
                                         color: isCompleted
-                                            ? const Color(0xFFE8F5E9)
-                                            : const Color(0xFFFFF3E0),
+                                            ? const Color(0xFFE8D44D).withOpacity(0.14)
+                                            : const Color(0xFFFFF3E0).withOpacity(0.14),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
@@ -3476,8 +3643,8 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                                           fontWeight: FontWeight.w900,
                                           fontSize: 11,
                                           color: isCompleted
-                                              ? const Color(0xFF2E7D32)
-                                              : const Color(0xFFE65100),
+                                              ? const Color(0xFFE8D44D)
+                                              : const Color(0xFFFF9800),
                                         ),
                                       ),
                                     ),
@@ -3487,24 +3654,24 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                                       style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                                     ),
                                   ],
-                                ),
+                                ) ,
                                 const SizedBox(height: 12),
                                 Text(
                                   order.title,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                                 const SizedBox(height: 6),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   width: double.infinity,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
+                                    color: const Color(0xFF1A1A1A),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black.withOpacity(0.05)),
+                                    border: Border.all(color: const Color(0xFF2A2A2A)),
                                   ),
                                   child: Text(
                                     order.details,
-                                    style: const TextStyle(height: 1.4, color: Colors.black87, fontWeight: FontWeight.w500),
+                                    style: const TextStyle(height: 1.4, color: Colors.white70, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                                 if (!isCompleted) ...[
@@ -3514,8 +3681,8 @@ class _WorkerClientsViewState extends State<WorkerClientsView> {
                                     height: 44,
                                     child: FilledButton.icon(
                                       style: FilledButton.styleFrom(
-                                        backgroundColor: const Color(0xFF163300),
-                                        foregroundColor: Colors.white,
+                                        backgroundColor: const Color(0xFFE8D44D),
+                                        foregroundColor: const Color(0xFF0A0A0A),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
                                       onPressed: () => _completeOrder(order),
@@ -3716,7 +3883,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9FE870)))
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFE8D44D)))
             : _error != null
                 ? Center(
                     child: Padding(
@@ -3821,7 +3988,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF9FE870),
+                color: Color(0xFFE8D44D),
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
                 letterSpacing: 0.8,
