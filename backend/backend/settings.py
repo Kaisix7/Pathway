@@ -47,6 +47,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'core.middleware.SensitiveDataMaskingMiddleware',
+    'core.middleware.JSONLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -186,9 +187,15 @@ SECURE_HSTS_PRELOAD = os.getenv('DJANGO_SECURE_HSTS_PRELOAD', 'False') == 'True'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': 'core.logging.JSONFormatter',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'json',
         },
     },
     'root': {
@@ -228,8 +235,9 @@ import os
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STATIC_ROOT = BASE_DIR / "staticfiles"
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+# Respect DJANGO_DEBUG and DJANGO_ALLOWED_HOSTS environment variables
+DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',') if h.strip()]
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
