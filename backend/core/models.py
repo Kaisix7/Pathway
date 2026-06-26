@@ -114,6 +114,6 @@ class Order(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['user_email'], name='order_usr_email_idx'),
-            models.Index(fields=['status'], name='order_status_idx'),
+            models.Index(fields=['status'], name='order_pymt_status_idx'),
             models.Index(fields=['created_at'], name='order_created_at_idx'),
         ]

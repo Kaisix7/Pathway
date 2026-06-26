@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='order',
-            index=models.Index(fields=['status'], name='order_status_idx'),
+            index=models.Index(fields=['status'], name='order_pymt_status_idx'),
         ),
         migrations.AddIndex(
             model_name='order',
