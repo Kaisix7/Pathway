@@ -392,7 +392,7 @@ class _StripePaymentScreenState extends State<StripePaymentScreen> with SingleTi
           ),
           const SizedBox(height: 40),
           if (_isVerifying)
-            const Column(
+            Column(
               children: [
                 CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),

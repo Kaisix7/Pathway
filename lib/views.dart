@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:universal_html/html.dart' as html;
+import 'dart:js_util' as js_util;
 import 'package:uni_links/uni_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
@@ -247,6 +248,21 @@ class _AuthViewState extends State<AuthView> {
         return;
       }
 
+      String captchaToken = '';
+      if (kIsWeb) {
+        try {
+          final promise = js_util.callMethod(html.window, 'showCaptchaOverlay', []);
+          final result = await js_util.promiseToFuture(promise);
+          if (result == null) {
+            _snack(context, 'Captcha verification failed. Please try again.');
+            return;
+          }
+          captchaToken = result as String;
+        } catch (e) {
+          debugPrint('reCAPTCHA show error: $e');
+        }
+      }
+
       try {
         final utms = Analytics.getStoredUtms();
         final token = await ApiService.registerUser(
@@ -256,6 +272,7 @@ class _AuthViewState extends State<AuthView> {
           utmSource: utms['utm_source'] ?? '',
           utmMedium: utms['utm_medium'] ?? '',
           utmCampaign: utms['utm_campaign'] ?? '',
+          captchaToken: captchaToken,
         );
 
         if (token == null) {

@@ -49,6 +49,7 @@ class ApiService {
     String utmSource = '',
     String utmMedium = '',
     String utmCampaign = '',
+    String captchaToken = '',
   }) async {
     try {
       final response = await http.post(
@@ -61,6 +62,7 @@ class ApiService {
           'utm_source': utmSource,
           'utm_medium': utmMedium,
           'utm_campaign': utmCampaign,
+          'captcha_token': captchaToken,
         }),
       );
 
