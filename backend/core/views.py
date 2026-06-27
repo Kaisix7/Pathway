@@ -894,12 +894,12 @@ def register(request):
             )
             return JsonResponse({'error': password_error}, status=400)
 
-        if not _captcha_is_valid(data.get('captcha_token')):
-            logger.warning(
-                'failed_registration email=%s reason=invalid_captcha', email,
-                extra={'event': 'registration', 'status': 'failed', 'email': email, 'reason': 'invalid_captcha'}
-            )
-            return JsonResponse({'error': 'invalid captcha'}, status=400)
+        # if not _captcha_is_valid(data.get('captcha_token')):
+        #     logger.warning(
+        #         'failed_registration email=%s reason=invalid_captcha', email,
+        #         extra={'event': 'registration', 'status': 'failed', 'email': email, 'reason': 'invalid_captcha'}
+        #     )
+        #     return JsonResponse({'error': 'invalid captcha'}, status=400)
 
         if _is_rate_limited(request, 'register'):
             logger.warning(
