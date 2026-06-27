@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMITS = {
     'login': {'limit': 5, 'window': 60},
-    'register': {'limit': 3, 'window': 3600},
+    'register': {'limit': 100, 'window': 3600},
 }
 
 
