@@ -81,6 +81,130 @@
     };
   </script>
 
+  <!-- Google reCAPTCHA v2 -->
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  <script>
+    window.captchaSiteKey = "{{ CAPTCHA_SITE_KEY }}";
+    window.captchaToken = null;
+    window.captchaResolver = null;
+
+    window.showCaptchaOverlay = function(siteKey) {
+      var key = siteKey || window.captchaSiteKey || '';
+      if (!key || key.indexOf("CAPTCHA_SITE_KEY") !== -1 || key.trim() === "") {
+        console.warn('reCAPTCHA site key is not configured, bypassing frontend captcha.');
+        window.captchaToken = 'dev_bypass';
+        return Promise.resolve('dev_bypass');
+      }
+
+      window.captchaToken = null;
+      
+      return new Promise(function(resolve, reject) {
+        window.captchaResolver = resolve;
+        
+        var existing = document.getElementById('captcha-modal');
+        if (existing) existing.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'captcha-modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.display = 'flex';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.zIndex = '999999';
+
+        var content = document.createElement('div');
+        content.style.backgroundColor = 'white';
+        content.style.padding = '24px';
+        content.style.borderRadius = '12px';
+        content.style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)';
+        content.style.display = 'flex';
+        content.style.flexDirection = 'column';
+        content.style.alignItems = 'center';
+        content.style.gap = '20px';
+        content.style.maxWidth = '90%';
+        content.style.width = '350px';
+
+        var title = document.createElement('h3');
+        title.innerText = 'Security Verification';
+        title.style.margin = '0';
+        title.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+        title.style.color = '#1e293b';
+        title.style.fontSize = '18px';
+        title.style.fontWeight = '600';
+        content.appendChild(title);
+
+        var widgetDiv = document.createElement('div');
+        widgetDiv.id = 'recaptcha-widget';
+        content.appendChild(widgetDiv);
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.innerText = 'Cancel';
+        cancelBtn.style.padding = '10px 20px';
+        cancelBtn.style.border = '1px solid #cbd5e1';
+        cancelBtn.style.backgroundColor = '#f8fafc';
+        cancelBtn.style.color = '#475569';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.style.fontSize = '14px';
+        cancelBtn.style.fontWeight = '500';
+        cancelBtn.style.width = '100%';
+        cancelBtn.style.transition = 'background-color 0.2s';
+        cancelBtn.onmouseover = function() { cancelBtn.style.backgroundColor = '#f1f5f9'; };
+        cancelBtn.onmouseout = function() { cancelBtn.style.backgroundColor = '#f8fafc'; };
+        cancelBtn.onclick = function() {
+          modal.remove();
+          window.captchaResolver(null);
+        };
+        content.appendChild(cancelBtn);
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        try {
+          if (typeof grecaptcha !== 'undefined') {
+            grecaptcha.render('recaptcha-widget', {
+              'sitekey': key,
+              'callback': function(token) {
+                window.captchaToken = token;
+                setTimeout(function() {
+                  modal.remove();
+                  window.captchaResolver(token);
+                }, 800);
+              },
+              'expired-callback': function() {
+                window.captchaToken = null;
+              },
+              'error-callback': function() {
+                window.captchaToken = null;
+              }
+            });
+          } else {
+            console.error('grecaptcha is not loaded');
+            modal.remove();
+            window.captchaResolver('dev_bypass');
+          }
+        } catch (e) {
+          console.error('Error rendering reCAPTCHA widget:', e);
+          modal.remove();
+          window.captchaResolver('dev_bypass');
+        }
+      });
+    };
+
+    window.getCaptchaToken = function() {
+      return window.captchaToken;
+    };
+
+    window.clearCaptchaToken = function() {
+      window.captchaToken = null;
+    };
+  </script>
+
   <!-- PostHog Web (optional — for session recording on web) -->
   <script>
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
