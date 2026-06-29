@@ -439,8 +439,13 @@ def _captcha_is_valid(token):
             method='POST',
         )
         with urllib.request.urlopen(request, timeout=3) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            return data.get('success') is True
+            res_body = response.read().decode('utf-8')
+            logger.info('recaptcha_verification_response body=%s', res_body)
+            data = json.loads(res_body)
+            success = data.get('success') is True
+            if not success:
+                logger.warning('recaptcha_failed_details error_codes=%s', data.get('error-codes'))
+            return success
     except Exception as exc:
         logger.warning('captcha_verification_failed error=%s', exc)
         return False
