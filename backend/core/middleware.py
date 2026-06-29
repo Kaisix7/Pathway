@@ -118,12 +118,12 @@ class SecurityHeadersMiddleware:
         # Content-Security-Policy
         response['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://app.posthog.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "img-src 'self' data: https://*.stripe.com https://app.posthog.com; "
-            "connect-src 'self' https://*.stripe.com https://app.posthog.com https://www.google.com; "
-            "frame-src 'self' https://*.stripe.com https://www.google.com; "
-            "font-src 'self' data: https://fonts.gstatic.com;"
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; "
+            "style-src 'self' 'unsafe-inline' https:; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https: wss:; "
+            "frame-src 'self' https:; "
+            "font-src 'self' data: https:;"
         )
         # Permissions-Policy
         response['Permissions-Policy'] = "geolocation=(), microphone=(), camera=()"
