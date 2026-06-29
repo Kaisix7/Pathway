@@ -96,18 +96,16 @@ class AppState extends ChangeNotifier {
     nationality = '';
     nationalityCode = 'US';
 
-    try {
-      await FirebaseFirestore.instance.collection('users').add({
-        'role': 'foreigner',
-        'firstName': firstName,
-        'lastName': lastName,
-        'contact': contact,
-        'source': 'google_oauth',
-        'createdAt': DateTime.now(),
-      });
-    } catch (e) {
+    FirebaseFirestore.instance.collection('users').add({
+      'role': 'foreigner',
+      'firstName': firstName,
+      'lastName': lastName,
+      'contact': contact,
+      'source': 'google_oauth',
+      'createdAt': DateTime.now(),
+    }).catchError((e) {
       debugPrint('FIREBASE ERROR: $e');
-    }
+    });
 
     await Analytics.trackLogin(email, source: 'google');
     await Analytics.identify(email, properties: {
@@ -160,25 +158,22 @@ class AppState extends ChangeNotifier {
     Analytics.utmMedium = this.utmMedium;
     Analytics.utmCampaign = this.utmCampaign;
 
-    try {
-      await FirebaseFirestore.instance.collection('users').add({
-        'role': 'foreigner',
-        'firstName': this.firstName,
-        'lastName': this.lastName,
-        'contact': this.contact,
-        'nationality': this.nationality,
-        'company': this.company,
-        'utm_source': this.utmSource,
-        'utm_medium': this.utmMedium,
-        'utm_campaign': this.utmCampaign,
-        'createdAt': DateTime.now(),
-      });
-
+    FirebaseFirestore.instance.collection('users').add({
+      'role': 'foreigner',
+      'firstName': this.firstName,
+      'lastName': this.lastName,
+      'contact': this.contact,
+      'nationality': this.nationality,
+      'company': this.company,
+      'utm_source': this.utmSource,
+      'utm_medium': this.utmMedium,
+      'utm_campaign': this.utmCampaign,
+      'createdAt': DateTime.now(),
+    }).then((_) {
       debugPrint("USER SAVED TO FIREBASE");
-    } catch (e) {
-      debugPrint("FIREBASE ERROR:");
-      debugPrint(e.toString());
-    }
+    }).catchError((e) {
+      debugPrint("FIREBASE ERROR: $e");
+    });
 
     await Analytics.trackSignUp(
       this.contact,
