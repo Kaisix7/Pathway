@@ -107,3 +107,31 @@ class JSONLoggingMiddleware:
         )
 
         return response
+
+
+class SecurityHeadersMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        # Content-Security-Policy
+        response['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://app.posthog.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "img-src 'self' data: https://*.stripe.com https://app.posthog.com; "
+            "connect-src 'self' https://*.stripe.com https://app.posthog.com https://www.google.com; "
+            "frame-src 'self' https://*.stripe.com https://www.google.com; "
+            "font-src 'self' data: https://fonts.gstatic.com;"
+        )
+        # Permissions-Policy
+        response['Permissions-Policy'] = "geolocation=(), microphone=(), camera=()"
+        # Referrer-Policy
+        response['Referrer-Policy'] = "same-origin"
+        # X-Content-Type-Options
+        response['X-Content-Type-Options'] = "nosniff"
+        # X-Frame-Options
+        response['X-Frame-Options'] = "DENY"
+        return response
+
