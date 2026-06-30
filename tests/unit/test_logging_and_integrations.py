@@ -101,20 +101,20 @@ class MetricsAndHealthTests(TestCase):
         self.assertEqual(data['database'], 'error')
 
     def test_refresh_business_gauges(self):
-        from backend.core.metrics_gauges import refresh_business_gauges, USERS_TOTAL
+        from core.metrics_gauges import refresh_business_gauges, USERS_TOTAL
         # Run refresh_business_gauges to verify it sets Prometheus gauges without throwing exception
         refresh_business_gauges()
         # Verify gauge value is set (should be 0 as there are no users in test DB by default)
         self.assertEqual(USERS_TOTAL._value.get(), 0.0)
 
-    @patch('backend.core.metrics_gauges.time.time')
-    @patch('backend.core.metrics_gauges.refresh_business_gauges')
+    @patch('core.metrics_gauges.time.time')
+    @patch('core.metrics_gauges.refresh_business_gauges')
     def test_refresh_business_gauges_if_stale(self, mock_refresh, mock_time):
-        from backend.core.metrics_gauges import refresh_business_gauges_if_stale
-        import backend.core.metrics_gauges
+        from core.metrics_gauges import refresh_business_gauges_if_stale
+        import core.metrics_gauges
         
         # Test when not stale
-        backend.core.metrics_gauges._last_refresh = 1000
+        core.metrics_gauges._last_refresh = 1000
         mock_time.return_value = 1005  # diff is 5 seconds (threshold is 1800)
         refresh_business_gauges_if_stale()
         self.assertFalse(mock_refresh.called)
@@ -124,10 +124,12 @@ class MetricsAndHealthTests(TestCase):
         refresh_business_gauges_if_stale()
         self.assertTrue(mock_refresh.called)
 
-    @patch('backend.core.metrics_gauges.logger')
-    @patch('backend.core.metrics_gauges._calculate_kpi_values')
-    def test_refresh_business_gauges_exception(self, mock_calc, mock_logger):
-        from backend.core.metrics_gauges import refresh_business_gauges
-        mock_calc.side_effect = Exception("Calculation failed")
-        refresh_business_gauges()
+    @patch('core.metrics_gauges.logger')
+    def test_refresh_business_gauges_exception(self, mock_logger):
+        from core.metrics_gauges import refresh_business_gauges
+        from unittest.mock import patch as _patch
+        # Mock the DB query to raise an exception inside refresh_business_gauges
+        with _patch('core.models.AppUser') as mock_user:
+            mock_user.objects.count.side_effect = Exception("DB error")
+            refresh_business_gauges()
         mock_logger.exception.assert_called_with('business_gauges_refresh_failed')
