@@ -1,0 +1,33 @@
+{{ define "telegram.critical" }}
+{{ range .Alerts }}
+{{ if eq .Status "firing" }}🚨 <b>CRITICAL ALERT</b>
+{{ else }}✅ <b>RESOLVED</b>
+{{ end }}
+<b>Alert:</b> {{ .Labels.alertname }}
+<b>Severity:</b> {{ .Labels.severity }}
+<b>Status:</b> {{ .Status | toUpper }}
+<b>Summary:</b> {{ .Annotations.summary }}
+<b>Description:</b> {{ .Annotations.description }}
+<b>Instance:</b> {{ .Labels.instance }}
+<b>Started:</b> {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ if eq .Status "resolved" }}<b>Resolved:</b> {{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ end }}
+---
+{{ end }}
+{{ end }}
+
+{{ define "telegram.warning" }}
+{{ range .Alerts }}
+{{ if eq .Status "firing" }}⚠️ <b>WARNING</b>
+{{ else }}✅ <b>RESOLVED</b>
+{{ end }}
+<b>Alert:</b> {{ .Labels.alertname }}
+<b>Summary:</b> {{ .Annotations.summary }}
+<b>Description:</b> {{ .Annotations.description }}
+<b>Instance:</b> {{ .Labels.instance }}
+<b>Started:</b> {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ if eq .Status "resolved" }}<b>Resolved:</b> {{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ end }}
+---
+{{ end }}
+{{ end }}

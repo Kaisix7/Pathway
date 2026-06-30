@@ -1,0 +1,6 @@
+FROM prom/alertmanager:latest
+
+COPY alertmanager.yml /etc/prometheus/alertmanager.yml.template
+COPY telegram.tmpl /etc/prometheus/telegram.tmpl
+
+ENTRYPOINT ["sh", "-c", "sed -e \"s/TELEGRAM_BOT_TOKEN_PLACEHOLDER/${TELEGRAM_BOT_TOKEN}/g\" -e \"s/TELEGRAM_CHAT_ID_PLACEHOLDER/${TELEGRAM_CHAT_ID}/g\" /etc/prometheus/alertmanager.yml.template > /etc/prometheus/alertmanager.yml && exec /bin/alertmanager --config.file=/etc/prometheus/alertmanager.yml --storage.path=/alertmanager"]
