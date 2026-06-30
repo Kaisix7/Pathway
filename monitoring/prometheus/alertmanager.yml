@@ -1,14 +1,31 @@
 global:
   resolve_timeout: 5m
 
+templates:
+  - '/etc/prometheus/telegram.tmpl'
+
 route:
   group_by: ['alertname']
   group_wait: 10s
   group_interval: 10s
   repeat_interval: 1h
-  receiver: 'web.hook'
+  receiver: 'telegram-warning'
+  routes:
+  - receiver: 'telegram-critical'
+    matchers:
+    - severity="critical"
 
 receivers:
-- name: 'web.hook'
-  webhook_configs:
-  - url: 'http://localhost:5001/'
+- name: 'telegram-critical'
+  telegram_configs:
+  - bot_token: 'TELEGRAM_BOT_TOKEN_PLACEHOLDER'
+    chat_id: TELEGRAM_CHAT_ID_PLACEHOLDER
+    parse_mode: 'HTML'
+    message: '{{ template "telegram.critical" . }}'
+
+- name: 'telegram-warning'
+  telegram_configs:
+  - bot_token: 'TELEGRAM_BOT_TOKEN_PLACEHOLDER'
+    chat_id: TELEGRAM_CHAT_ID_PLACEHOLDER
+    parse_mode: 'HTML'
+    message: '{{ template "telegram.warning" . }}'
