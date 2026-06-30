@@ -101,20 +101,20 @@ class MetricsAndHealthTests(TestCase):
         self.assertEqual(data['database'], 'error')
 
     def test_refresh_business_gauges(self):
-        from core.metrics_gauges import refresh_business_gauges, USERS_TOTAL
+        from backend.core.metrics_gauges import refresh_business_gauges, USERS_TOTAL
         # Run refresh_business_gauges to verify it sets Prometheus gauges without throwing exception
         refresh_business_gauges()
         # Verify gauge value is set (should be 0 as there are no users in test DB by default)
         self.assertEqual(USERS_TOTAL._value.get(), 0.0)
 
-    @patch('core.metrics_gauges.time.time')
-    @patch('core.metrics_gauges.refresh_business_gauges')
+    @patch('backend.core.metrics_gauges.time.time')
+    @patch('backend.core.metrics_gauges.refresh_business_gauges')
     def test_refresh_business_gauges_if_stale(self, mock_refresh, mock_time):
-        from core.metrics_gauges import refresh_business_gauges_if_stale
-        import core.metrics_gauges
+        from backend.core.metrics_gauges import refresh_business_gauges_if_stale
+        import backend.core.metrics_gauges
         
         # Test when not stale
-        core.metrics_gauges._last_refresh = 1000
+        backend.core.metrics_gauges._last_refresh = 1000
         mock_time.return_value = 1005  # diff is 5 seconds (threshold is 1800)
         refresh_business_gauges_if_stale()
         self.assertFalse(mock_refresh.called)
@@ -124,10 +124,10 @@ class MetricsAndHealthTests(TestCase):
         refresh_business_gauges_if_stale()
         self.assertTrue(mock_refresh.called)
 
-    @patch('core.metrics_gauges.logger')
-    @patch('core.metrics_gauges._calculate_kpi_values')
+    @patch('backend.core.metrics_gauges.logger')
+    @patch('backend.core.metrics_gauges._calculate_kpi_values')
     def test_refresh_business_gauges_exception(self, mock_calc, mock_logger):
-        from core.metrics_gauges import refresh_business_gauges
+        from backend.core.metrics_gauges import refresh_business_gauges
         mock_calc.side_effect = Exception("Calculation failed")
         refresh_business_gauges()
         mock_logger.exception.assert_called_with('business_gauges_refresh_failed')
