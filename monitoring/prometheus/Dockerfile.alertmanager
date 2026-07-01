@@ -1,9 +1,10 @@
 FROM prom/alertmanager:latest
 
 USER root
-COPY alertmanager.yml /tmp/alertmanager.yml.template
-COPY telegram.tmpl /etc/prometheus/telegram.tmpl
+RUN mkdir -p /opt/alertmanager && chown -R nobody:nobody /opt/alertmanager
 RUN mkdir -p /etc/alertmanager && chown -R nobody:nobody /etc/alertmanager
+COPY alertmanager.yml /opt/alertmanager/alertmanager.yml.template
+COPY telegram.tmpl /opt/alertmanager/telegram.tmpl
 USER nobody
 
-ENTRYPOINT ["sh", "-c", "sed -e \"s/TELEGRAM_BOT_TOKEN_PLACEHOLDER/${TELEGRAM_BOT_TOKEN}/g\" -e \"s/TELEGRAM_CHAT_ID_PLACEHOLDER/${TELEGRAM_CHAT_ID}/g\" /tmp/alertmanager.yml.template > /etc/alertmanager/alertmanager.yml && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager"]
+ENTRYPOINT ["sh", "-c", "sed -e \"s/TELEGRAM_BOT_TOKEN_PLACEHOLDER/${TELEGRAM_BOT_TOKEN}/g\" -e \"s/TELEGRAM_CHAT_ID_PLACEHOLDER/${TELEGRAM_CHAT_ID}/g\" /opt/alertmanager/alertmanager.yml.template > /etc/alertmanager/alertmanager.yml && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager"]
