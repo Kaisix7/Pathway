@@ -20,7 +20,7 @@ groups:
           description: "Error rate is {{ $value | printf \"%.2f\" }}% which is above the 5% threshold."
 
       - alert: LoadTestingDetected
-        expr: sum(rate(pathway_http_requests_total[1m])) > 20
+        expr: sum(rate(pathway_http_requests_total[1m])) > 5
         for: 15s
         labels:
           severity: warning
