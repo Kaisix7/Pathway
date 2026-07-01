@@ -27,3 +27,21 @@ groups:
         annotations:
           summary: "Load Testing / High Traffic Detected"
           description: "RPS is {{ $value | printf \"%.2f\" }} which indicates active load testing or heavy traffic."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(pathway_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected on {{ $labels.instance }}"
+          description: "95% of requests take more than 1.5s (current value: {{ $value | printf \"%.2f\" }}s)."
+
+      - alert: HighClientErrorRate
+        expr: sum(rate(pathway_http_requests_total{status_class="4xx"}[1m])) / sum(rate(pathway_http_requests_total[1m])) * 100 > 15
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High client error rate (4xx)"
+          description: "Client errors represent {{ $value | printf \"%.2f\" }}% of all requests."
