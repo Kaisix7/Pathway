@@ -31,7 +31,7 @@ services:
         sync: false
 
   # Prometheus Service
-  - type: private
+  - type: pserv
     name: prometheus
     env: docker
     dockerContext: monitoring/prometheus
@@ -39,7 +39,7 @@ services:
     plan: free
 
   # Alertmanager Service
-  - type: private
+  - type: pserv
     name: alertmanager
     env: docker
     dockerContext: monitoring/prometheus
