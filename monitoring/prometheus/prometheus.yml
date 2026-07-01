@@ -5,6 +5,13 @@ global:
 rule_files:
   - "alert.rules"
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:10000"
+            - "alertmanager:9093"
+
 scrape_configs:
   - job_name: "prometheus"
     static_configs:
