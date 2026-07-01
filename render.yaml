@@ -29,3 +29,37 @@ services:
         sync: false
       - key: CAPTCHA_SECRET_KEY
         sync: false
+
+  # Prometheus Service
+  - type: private
+    name: prometheus
+    env: docker
+    dockerContext: monitoring/prometheus
+    dockerfilePath: monitoring/prometheus/Dockerfile
+    plan: free
+
+  # Alertmanager Service
+  - type: private
+    name: alertmanager
+    env: docker
+    dockerContext: monitoring/prometheus
+    dockerfilePath: monitoring/prometheus/Dockerfile.alertmanager
+    plan: free
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+  # Grafana Service
+  - type: web
+    name: grafana
+    env: docker
+    dockerContext: monitoring/grafana
+    dockerfilePath: monitoring/grafana/Dockerfile
+    plan: free
+    envVars:
+      - key: GF_SECURITY_ADMIN_PASSWORD
+        value: "admin"
+      - key: GF_USERS_ALLOW_SIGN_UP
+        value: "false"

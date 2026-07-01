@@ -85,15 +85,10 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:latest
+    build:
+      context: ./monitoring/prometheus
+      dockerfile: Dockerfile
     container_name: pathway_prometheus
-    volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -101,14 +96,13 @@ services:
       - backend
 
   grafana:
-    image: grafana/grafana:latest
+    build:
+      context: ./monitoring/grafana
+      dockerfile: Dockerfile
     container_name: pathway_grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -123,12 +117,13 @@ services:
     restart: unless-stopped
 
   alertmanager:
-    image: prom/alertmanager:latest
+    build:
+      context: ./monitoring/prometheus
+      dockerfile: Dockerfile.alertmanager
     container_name: pathway_alertmanager
-    volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-    command:
-      - '--config.file=/etc/prometheus/alertmanager.yml'
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     ports:
       - "9093:9093"
     restart: unless-stopped
