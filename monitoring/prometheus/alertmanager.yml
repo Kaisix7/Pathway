@@ -2,7 +2,7 @@ global:
   resolve_timeout: 5m
 
 templates:
-  - '/etc/prometheus/telegram.tmpl'
+  - '/opt/alertmanager/telegram.tmpl'
 
 route:
   group_by: ['alertname']

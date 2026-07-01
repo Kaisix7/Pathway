@@ -7,4 +7,4 @@ COPY alertmanager.yml /opt/alertmanager/alertmanager.yml.template
 COPY telegram.tmpl /opt/alertmanager/telegram.tmpl
 USER nobody
 
-ENTRYPOINT ["sh", "-c", "sed -e \"s/TELEGRAM_BOT_TOKEN_PLACEHOLDER/${TELEGRAM_BOT_TOKEN}/g\" -e \"s/TELEGRAM_CHAT_ID_PLACEHOLDER/${TELEGRAM_CHAT_ID}/g\" /opt/alertmanager/alertmanager.yml.template > /etc/alertmanager/alertmanager.yml && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager"]
+ENTRYPOINT ["sh", "-c", "sed -e \"s/TELEGRAM_BOT_TOKEN_PLACEHOLDER/${TELEGRAM_BOT_TOKEN}/g\" -e \"s/TELEGRAM_CHAT_ID_PLACEHOLDER/${TELEGRAM_CHAT_ID}/g\" /opt/alertmanager/alertmanager.yml.template > /etc/alertmanager/alertmanager.yml && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager --web.listen-address=0.0.0.0:${PORT:-9093}"]
