@@ -29,6 +29,18 @@ services:
         sync: false
       - key: CAPTCHA_SECRET_KEY
         sync: false
+      - key: REDIS_URL
+        fromRedis:
+          name: pathway-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromRedis:
+          name: pathway-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromRedis:
+          name: pathway-redis
+          property: connectionString
 
   # Prometheus Service
   - type: web
@@ -63,3 +75,9 @@ services:
         value: "admin"
       - key: GF_USERS_ALLOW_SIGN_UP
         value: "false"
+
+  # Redis Service
+  - type: redis
+    name: pathway-redis
+    plan: free
+
