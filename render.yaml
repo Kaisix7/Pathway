@@ -30,15 +30,18 @@ services:
       - key: CAPTCHA_SECRET_KEY
         sync: false
       - key: REDIS_URL
-        fromRedis:
+        fromService:
+          type: redis
           name: pathway-redis
           property: connectionString
       - key: CELERY_BROKER_URL
-        fromRedis:
+        fromService:
+          type: redis
           name: pathway-redis
           property: connectionString
       - key: CELERY_RESULT_BACKEND
-        fromRedis:
+        fromService:
+          type: redis
           name: pathway-redis
           property: connectionString
 
@@ -80,4 +83,7 @@ services:
   - type: redis
     name: pathway-redis
     plan: free
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
 
