@@ -78,6 +78,11 @@ services:
         value: "admin"
       - key: GF_USERS_ALLOW_SIGN_UP
         value: "false"
+      - key: PROMETHEUS_URL
+        fromService:
+          type: web
+          name: prometheus
+          property: url
 
   # Redis Service
   - type: redis
