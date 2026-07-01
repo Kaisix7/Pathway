@@ -2,7 +2,7 @@ groups:
   - name: pathway_alerts
     rules:
       - alert: ServiceDown
-        expr: up == 0
+        expr: up{job="backend"} == 0
         for: 30s
         labels:
           severity: critical
