@@ -7,9 +7,13 @@ rule_files:
 
 alerting:
   alertmanagers:
-    - static_configs:
+    - scheme: https
+      static_configs:
         - targets:
-            - "alertmanager:10000"
+            - "alertmanager-x69h.onrender.com:443"
+    - scheme: http
+      static_configs:
+        - targets:
             - "alertmanager:9093"
 
 scrape_configs:
