@@ -718,6 +718,14 @@ def orders(request):
             user_email=order.user_email,
             properties=mask_payload({'order_id': order.id, 'service_type': order.service_type}),
         )
+        try:
+            send_posthog_event(
+                event_name='order_created',
+                distinct_id=order.user_email or 'anonymous',
+                properties={'order_id': order.id, 'service_type': order.service_type},
+            )
+        except Exception as exc:
+            logger.warning('Failed to send order_created to PostHog: %s', exc)
         cache_delete('orders:v1:all')
         if order.user_email:
             cache_delete(f'orders:v1:{order.user_email}')
@@ -748,6 +756,14 @@ def pay_order(request, order_id):
         user_email=order.user_email,
         properties=mask_payload({'order_id': order.id, 'amount': order.price}),
     )
+    try:
+        send_posthog_event(
+            event_name='order_paid',
+            distinct_id=order.user_email or 'anonymous',
+            properties={'order_id': order.id, 'amount': order.price},
+        )
+    except Exception as exc:
+        logger.warning('Failed to send order_paid to PostHog: %s', exc)
     cache_delete('orders:v1:all')
     if order.user_email:
         cache_delete(f'orders:v1:{order.user_email}')
@@ -1099,6 +1115,14 @@ def checkout(request):
             user_email=user_email,
             properties={'session_id': session.id, 'amount': 2499}
         )
+        try:
+            send_posthog_event(
+                event_name='checkout_started',
+                distinct_id=user_email or 'anonymous',
+                properties={'session_id': session.id, 'amount': 2499, 'gateway': 'stripe'},
+            )
+        except Exception as exc:
+            logger.warning('Failed to send checkout_started to PostHog: %s', exc)
 
         return JsonResponse({'url': session.url, 'session_id': session.id})
 
@@ -1308,6 +1332,14 @@ def bereke_checkout(request):
         user_email=user_email,
         properties={'session_id': session_id, 'amount': amount, 'gateway': 'bereke'}
     )
+    try:
+        send_posthog_event(
+            event_name='checkout_started',
+            distinct_id=user_email or 'anonymous',
+            properties={'session_id': session_id, 'amount': amount, 'gateway': 'bereke'},
+        )
+    except Exception as exc:
+        logger.warning('Failed to send checkout_started to PostHog: %s', exc)
 
     simulated_url = request.build_absolute_uri(f"/api/payment/bereke/callback/?session_id={session_id}&status=success")
     
@@ -1374,6 +1406,14 @@ def bereke_callback(request):
                 'gateway': 'bereke'
             }
         )
+        try:
+            send_posthog_event(
+                event_name='payment failed',
+                distinct_id=order.user_email or 'anonymous',
+                properties={'session_id': session_id, 'amount': order.amount, 'gateway': 'bereke'},
+            )
+        except Exception as exc:
+            logger.warning('Failed to send payment failed to PostHog: %s', exc)
         logger.error(
             f"Bereke payment failed for {order.user_email}",
             extra={
@@ -1434,6 +1474,14 @@ def payment_refund(request):
             'user_email': order.user_email
         }
     )
+    try:
+        send_posthog_event(
+            event_name='payment refunded',
+            distinct_id=order.user_email or 'anonymous',
+            properties={'order_id': order_id, 'amount': order.amount},
+        )
+    except Exception as exc:
+        logger.warning('Failed to send payment refunded to PostHog: %s', exc)
 
     logger.info(
         f"Order {order_id} has been refunded",
