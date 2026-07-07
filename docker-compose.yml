@@ -129,6 +129,25 @@ services:
       - "9093:9093"
     restart: unless-stopped
 
+  db-backup:
+    image: postgres:16-alpine
+    container_name: pathway_db_backup
+    depends_on:
+      - db
+    environment:
+      PGHOST: db
+      PGUSER: pathway
+      PGDATABASE: pathway
+      PGPASSWORD: pathway
+    volumes:
+      - ./backend/scripts/db_backup.sh:/scripts/db_backup.sh:ro
+      - db_backups:/app/backups
+    entrypoint: /bin/sh
+    command: >
+      -c "echo '0 2 * * * /bin/sh /scripts/db_backup.sh >> /var/log/backup.log 2>&1' | crontab - && crond -f -l 2"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  db_backups:
 
